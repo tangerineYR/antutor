@@ -71,7 +71,11 @@ class QuizService:
             is_correct = False
             earned_score = 0
             
-            if correct_option is not None:
+            if answer_sub.selected_choice == 6:
+                # "I don't know" is uncertainty, never a high-confidence misconception.
+                is_correct = False
+                earned_score = 0
+            elif correct_option is not None:
                 # 선택지 번호(1~5)와 정답 번호(1~5) 비교
                 is_correct = (correct_option == answer_sub.selected_choice)
                 earned_score = QuizService._calculate_cbm_score(is_correct, answer_sub.confidence_level)

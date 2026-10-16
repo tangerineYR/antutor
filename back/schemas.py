@@ -100,8 +100,14 @@ class QuizQuestionOut(BaseModel):
 
 class QuizAnswerSubmit(BaseModel):
     question_id: Any
-    selected_choice: int
-    confidence_level: int # 1(low), 2(mid), 3(high), 0(No Reply)
+    selected_choice: int = Field(..., ge=1, le=6, strict=True)
+    confidence_level: int = Field(..., ge=0, le=3, strict=True)
+
+    @model_validator(mode="after")
+    def validate_uncertain_answer(self):
+        if (self.selected_choice == 6) != (self.confidence_level == 0):
+            raise ValueError("Choice 6 requires confidence 0; choices 1–5 require confidence 1–3")
+        return self
 
 class QuizSubmission(BaseModel):
     session_id: Optional[str] = None
