@@ -2,6 +2,9 @@ from typing import TypedDict, List, Dict, Annotated, Any, Optional
 import operator
 
 class AgentState(TypedDict):
+    cache_scope: Optional[Dict[str, Any]]
+    is_scaffold_success: bool
+    scaffold_step: Optional[str]
     concept: str
     user_answer: str
     definition: str          # DB definition 컬럼 (필수)

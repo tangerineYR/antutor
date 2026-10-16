@@ -1,3 +1,4 @@
+from services.semantic_cache import cached_synthesis
 import json
 import asyncio
 import re
@@ -241,7 +242,7 @@ async def retry_node(state: AgentState):
         consecutive_high_score_count=state.get("consecutive_high_score_count", 0)
     )
 
-    llm_result = await call_synthesis(sys_msg)
+    llm_result = await cached_synthesis(sys_msg, state, call_synthesis)
 
     if llm_result is not None:
         # LLM 응답에서 message 추출
@@ -506,7 +507,7 @@ async def synthesis_node(state: AgentState):
         consecutive_high_score_count=state.get("consecutive_high_score_count", 0)
     )
     
-    res_content = await call_synthesis(sys_msg)
+    res_content = await cached_synthesis(sys_msg, state, call_synthesis)
     
     if res_content is None:
         # 타임아웃 발생 시 fallback 처리: 각 에이전트의 부분 결과를 조합하여 반환

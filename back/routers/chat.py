@@ -27,7 +27,6 @@ from multi_agent.prompts import RECOVERY_NUDGE_PROMPT, RECOVERY_CONCEPT_PROMPT, 
 from langchain_core.messages import SystemMessage
 # --- 보안 가드레일 & 시맨틱 캐시 ---
 from services.guardrail import run_guardrail, run_guardrail_ws
-from services.semantic_cache import get_cached_response, save_to_cache
 
 def get_recovery_prompt(concept_name, definition, acceptable_extensions, last_question, kg_context, idk_count, student_answer="", session_context=""):
     fmt = dict(concept_name=concept_name, definition=definition, acceptable_extensions=acceptable_extensions,
@@ -379,28 +378,6 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks, current_
         if isinstance(urls, list):
             used_news_urls.update(urls)
 
-    # ── 2. 시맨틱 캐시 조회 ──────────────────────────────────────────
-    cached_response = await get_cached_response(concept_name, eval_user_answer, last_question_from_history)
-    if cached_response:
-        print(f"✅ [Chat] 시맨틱 캐시 히트! 캐시된 응답 반환", flush=True)
-        translated_cached = await translate_en_to_ko(cached_response, language)
-        return {
-            "atomic_propositions": ["(Served from semantic cache)"],
-            "expert_average_score": 0.0,
-            "is_contradiction_override": False,
-            "expert_feedback": [],
-            "is_fallback": False,
-            "from_cache": True,
-            "moderator_decision": {
-                "status": "proceed",
-                "lowest_performing_area": "N/A",
-                "scaffold_plan": {
-                    "step": "Guidance Prompt",
-                    "message": translated_cached
-                }
-            }
-        }
-    
     any_fallback = False
     is_scaffold_success = False
     scaffold_step = None
@@ -469,6 +446,8 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks, current_
         turn_count = len(session_history)
 
         initial_state = {
+            "cache_scope": {"learner_id": str(user_id), "session_id": str(session["session_id"]),
+                            "concept_id": str(db_concept_id), "session": dict(session), "language": language},
             "concept": concept_name,
             "user_answer": eval_user_answer,
             "definition": definition,
@@ -686,10 +665,6 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks, current_
                 "step": "Guidance Prompt",
                 "message": guidance_message
             }
-
-    # ── 3. 시맨틱 캐시 저장 ──────────────────────────────────────────
-    if guidance_message:
-        await save_to_cache(concept_name, eval_user_answer, guidance_message, last_question_from_history)
 
     chat_log_payload = {
         "session_id": session["session_id"],
@@ -949,35 +924,6 @@ async def websocket_chat(websocket: WebSocket):
         logs_count_res = await db(lambda: supabase.table("chat_logs").select("log_id", count="exact").eq("session_id", session["session_id"]).execute())
         turn_number = logs_count_res.count + 1 if logs_count_res.count is not None else 1
 
-        # ── 2. 시맨틱 캐시 조회 ──────────────────────────────────────────
-        if not is_give_up and turn_number == 1:
-            cached_response = await get_cached_response(concept_name, eval_user_answer)
-            if cached_response:
-                print(f"✅ [WS Chat] 시맨틱 캐시 히트! 캐시된 응답 반환", flush=True)
-                translated_cached = await translate_en_to_ko(cached_response, language)
-                await websocket.send_json({
-                    "type": "final_result",
-                    "data": {
-                        "atomic_propositions": ["(Served from semantic cache)"],
-                        "expert_average_score": 0.0,
-                        "is_contradiction_override": False,
-                        "expert_feedback": [],
-                        "is_fallback": False,
-                        "from_cache": True,
-                        "moderator_decision": {
-                            "status": "proceed",
-                            "lowest_performing_area": "N/A",
-                            "scaffold_plan": {
-                                "step": "Guidance Prompt",
-                                "message": translated_cached
-                            }
-                        }
-                    }
-                })
-                await asyncio.sleep(1)
-                await websocket.close()
-                return
-
         await websocket.send_json({"type": "status", "message": await translate_en_to_ko("🌐 Searching Knowledge Graph & News...", language)})
         
         # ── 히스토리를 gather 전에 먼저 조회 — last_question + used_urls를 gather에 전달 ─────────────
@@ -1103,6 +1049,8 @@ async def websocket_chat(websocket: WebSocket):
 
 
         initial_state = {
+            "cache_scope": {"learner_id": str(user_id), "session_id": str(session["session_id"]),
+                            "concept_id": str(db_concept_id), "session": dict(session), "language": language},
             "concept": concept_name,
             "user_answer": eval_user_answer,
             "definition": definition,
@@ -1367,10 +1315,6 @@ async def websocket_chat(websocket: WebSocket):
                 moderator_action = "proceed"
                 guidance_message = final_state.get("final_synthesis", "Good job, but let's explore more deeply.")
                 scaffold_plan = {"step": "Guidance Prompt", "message": guidance_message}
-
-        # ── 3. 시맨틱 캐시 저장 ──────────────────────────────────────────
-        if not is_give_up and guidance_message and turn_number == 1:
-            await save_to_cache(concept_name, eval_user_answer, guidance_message)
 
         chat_log_payload = {
             "session_id": session["session_id"],
