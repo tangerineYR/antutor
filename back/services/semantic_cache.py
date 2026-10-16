@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from database import supabase
@@ -94,7 +95,8 @@ async def save_to_cache(concept: str, user_answer: str, response: str, last_ques
         await asyncio.to_thread(lambda: supabase.table("semantic_cache").upsert({
             "namespace": namespace, "concept": concept, "last_question": last_question,
             "user_answer": user_answer, "cached_response": response, "embedding": embedding,
-        }, on_conflict="namespace", ignore_duplicates=True).execute())
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }, on_conflict="namespace").execute())
     except Exception:
         logger.warning("Semantic cache write unavailable")
 

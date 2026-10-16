@@ -448,6 +448,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks, current_
         initial_state = {
             "cache_scope": {"learner_id": str(user_id), "session_id": str(session["session_id"]),
                             "concept_id": str(db_concept_id), "session": dict(session), "language": language},
+            "language": language,
             "concept": concept_name,
             "user_answer": eval_user_answer,
             "definition": definition,
@@ -1051,6 +1052,7 @@ async def websocket_chat(websocket: WebSocket):
         initial_state = {
             "cache_scope": {"learner_id": str(user_id), "session_id": str(session["session_id"]),
                             "concept_id": str(db_concept_id), "session": dict(session), "language": language},
+            "language": language,
             "concept": concept_name,
             "user_answer": eval_user_answer,
             "definition": definition,
@@ -1065,8 +1067,9 @@ async def websocket_chat(websocket: WebSocket):
             "debate_count": 0,
             "moderator_action": "",
             "consecutive_high_score_count": session.get("consecutive_high_score_count", 0),
+            "source_turn_count": session.get("source_turn_count", 0),
+            "turn_count": turn_number,
             "hint_provided": False,
-            "language": language,
             "session_context": session_context_str,
             "last_question": last_question_from_history,
             "previous_lowest_agent": last_selected_agent,
