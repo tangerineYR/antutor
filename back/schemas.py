@@ -123,7 +123,7 @@ class QuizAnswerDetailOut(BaseModel):
     earned_score: Optional[int] = 0
 
 class QuizResultOut(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     score: int
     max_score: int
     skill_improvement: Optional[float] = None

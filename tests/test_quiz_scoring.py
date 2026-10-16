@@ -29,3 +29,14 @@ def test_uncertainty_is_persisted_as_zero(monkeypatch):
     assert result.score==0
     answers=db.table.return_value.insert.call_args.args[0]
     assert answers[0]['is_correct'] is False and answers[0]['earned_score']==0
+
+def test_quiz_rejects_another_learners_session(monkeypatch):
+    import routers.quiz as router
+    from fastapi import HTTPException
+    db=MagicMock();monkeypatch.setattr(router,'supabase',db)
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data=[]
+    submission=QuizSubmission(session_id='12',user_id='forged',concept='inflation',is_pre_test=True,answers=[])
+    with pytest.raises(HTTPException) as error:
+        router.submit_quiz(submission,{'user_id':'real-user'})
+    assert error.value.status_code==404
+    assert db.table.return_value.select.return_value.eq.return_value.eq.call_args.args==('user_id','real-user')

@@ -3,6 +3,7 @@ from typing import List
 from schemas import QuizQuestionOut, QuizSubmission, QuizResultOut
 from services.quiz_service import QuizService
 from dependencies import get_current_user
+from database import supabase
 
 router = APIRouter(
     prefix="/quiz",
@@ -25,5 +26,10 @@ def submit_quiz(submission: QuizSubmission, current_user: dict = Depends(get_cur
     # 프론트엔드에서 넘어온 userName (TestUser) 대신, 토큰에서 추출한 진짜 UUID를 매핑
     real_user_id = current_user.get("user_id", current_user.get("id"))
     submission.user_id = real_user_id
+    if submission.session_id is not None:
+        owned = supabase.table("sessions").select("session_id").eq(
+            "session_id", submission.session_id).eq("user_id", real_user_id).execute()
+        if not owned.data:
+            raise HTTPException(status_code=404, detail="Session not found")
     
     return QuizService.evaluate_submission(submission)
