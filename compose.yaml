@@ -1,0 +1,49 @@
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg16
+    environment:
+      POSTGRES_DB: antutor
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD in your shell or ignored .env}
+    ports:
+      - "127.0.0.1:${LOCAL_DB_PORT:-54322}:5432"
+    volumes:
+      - antutor_db:/var/lib/postgresql/data
+      - ./scripts/db/roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+      - ./scripts/db/authenticator.sh:/docker-entrypoint-initdb.d/01-authenticator.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d antutor"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/${LOCAL_NEO4J_PASSWORD:?Set LOCAL_NEO4J_PASSWORD in your shell or ignored .env}
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - antutor_graph:/data
+  rest:
+    image: postgrest/postgrest:v12.2.8
+    profiles: [api]
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${LOCAL_DB_PASSWORD}@db:5432/antutor
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${LOCAL_SUPABASE_JWT_SECRET:-}
+    depends_on:
+      db:
+        condition: service_healthy
+  gateway:
+    image: nginx:1.27-alpine
+    profiles: [api]
+    ports:
+      - "127.0.0.1:${LOCAL_API_PORT:-54321}:80"
+    volumes:
+      - ./scripts/db/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on: [rest]
+
+volumes:
+  antutor_db:
+  antutor_graph:
