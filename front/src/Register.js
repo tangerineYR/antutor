@@ -3,6 +3,7 @@ import { Lock, ArrowRight, User, CheckCircle } from 'lucide-react';
 import { authAPI } from './api/services';
 import { t } from './locales';
 import './Login.css';
+import { isValidPassword } from './passwordPolicy';
 
 const Register = ({ onGoToLogin, language = 'ko', onLanguageChange }) => {
   const [userId, setUserId] = useState('');
@@ -58,7 +59,7 @@ const Register = ({ onGoToLogin, language = 'ko', onLanguageChange }) => {
       alert(t(language, 'loginPasswordPlaceholder'));
       return;
     }
-    if ([...password].length < 8 || [...password].length > 72 || new TextEncoder().encode(password).length > 72) {
+    if (!isValidPassword(password)) {
       alert(t(language, 'invalidPassword'));
       return;
     }
@@ -149,9 +150,8 @@ const Register = ({ onGoToLogin, language = 'ko', onLanguageChange }) => {
               <div className="input-field">
                 <Lock size={18} className="input-icon" />
                 <input
-                  type="text"
-                  style={{ WebkitTextSecurity: 'disc' }}
-                  autoComplete="off"
+                  type="password"
+                  autoComplete="new-password"
                   placeholder={t(language, 'loginPasswordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

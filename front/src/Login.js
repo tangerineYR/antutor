@@ -86,9 +86,8 @@ const Login = ({ onLogin, onGoToRegister, language, onLanguageChange }) => {
               <div className="input-field">
                 <Lock size={18} className="input-icon" />
                 <input
-                  type="text"
-                  style={{ WebkitTextSecurity: 'disc' }}
-                  autoComplete="off"
+                  type="password"
+                  autoComplete="current-password"
                   placeholder={t(language, 'loginPasswordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
