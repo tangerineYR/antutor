@@ -3,8 +3,7 @@ back/services/guardrail.py
 ==========================
 보안 가드레일 — 프롬프트 인젝션 / 탈옥 시도 탐지
 
-DB 미구축 상태: 차단 로그 저장은 print()로 임시 처리
-실제 운영 시 TODO 주석 위치에 Supabase INSERT 쿼리를 추가합니다.
+위협 분류와 사용자 ID만 security_logs에 저장합니다.
 """
 
 import re
@@ -92,56 +91,40 @@ def _detect_threat(text: str) -> tuple[bool, str]:
 # 공개 API
 # ---------------------------------------------------------------------------
 
+async def persist_security_event(user_id: str, reason: str, transport: str) -> None:
+    """Record only classification/identity, never learner input or matched text.
+
+    Audit outages must not turn a blocked request into an allowed one.
+    """
+    import asyncio
+    import logging
+    from uuid import UUID
+    from database import supabase
+    try:
+        identity = str(UUID(str(user_id)))
+    except (ValueError, TypeError):
+        identity = None
+    record = {"user_id": identity, "threat_type": reason.split("(")[0].strip(),
+              "transport": transport}
+    try:
+        if supabase is None:
+            raise RuntimeError("Database unavailable")
+        await asyncio.wait_for(asyncio.to_thread(
+            lambda: supabase.table("security_logs").insert(record).execute()), timeout=2)
+    except Exception:
+        logging.getLogger(__name__).warning("Security audit persistence failed; request remains blocked")
+
+
 async def run_guardrail(user_input: str, user_id: str = "unknown") -> None:
-    """
-    사용자 입력을 검사하고 위협이 감지되면 HTTP 400을 발생시킵니다.
-    chat.py의 LLM 파이프라인 진입 전에 호출하세요.
-
-    Args:
-        user_input: 검사할 사용자 입력 텍스트 (영어 번역본 권장)
-        user_id:    로그용 사용자 식별자
-
-    Raises:
-        HTTPException(400): 위협 감지 시
-    """
     is_threat, reason = _detect_threat(user_input)
-    if not is_threat:
-        return
-
-    print(
-        f"🚨 [Guardrail] 위협 감지 | user={user_id} | type={reason} "
-        f"| input_preview='{user_input[:80]}'",
-        flush=True,
-    )
-    # TODO: DB 로그 저장 (보안 로그 테이블 구축 후 아래 코드로 교체)
-    # await supabase.table("security_logs").insert({
-    #     "user_id": user_id,
-    #     "threat_type": reason,
-    #     "input_preview": user_input[:200],
-    #     "created_at": datetime.utcnow().isoformat()
-    # }).execute()
-    print("📝 [Guardrail] 보안 로그 저장됨 (DB 미구축 — 임시 처리)", flush=True)
-
-    raise HTTPException(
-        status_code=400,
-        detail=f"입력이 보안 정책에 의해 차단되었습니다. ({reason.split('(')[0].strip()})",
-    )
+    if is_threat:
+        await persist_security_event(user_id, reason, "rest")
+        raise HTTPException(status_code=400, detail="입력이 보안 정책에 의해 차단되었습니다.")
 
 
 async def run_guardrail_ws(user_input: str, user_id: str = "unknown") -> str | None:
-    """
-    WebSocket 전용 가드레일 — 예외 대신 오류 메시지를 반환합니다.
-    차단 시 websocket.send_json()에 전달할 메시지를 반환하고,
-    정상이면 None을 반환합니다.
-    """
     is_threat, reason = _detect_threat(user_input)
-    if not is_threat:
-        return None
-
-    print(
-        f"🚨 [Guardrail-WS] 위협 감지 | user={user_id} | type={reason}",
-        flush=True,
-    )
-    print("📝 [Guardrail] 보안 로그 저장됨 (DB 미구축 — 임시 처리)", flush=True)
-
-    return f"입력이 보안 정책에 의해 차단되었습니다. ({reason.split('(')[0].strip()})"
+    if is_threat:
+        await persist_security_event(user_id, reason, "websocket")
+        return "입력이 보안 정책에 의해 차단되었습니다."
+    return None

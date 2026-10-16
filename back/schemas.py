@@ -1,9 +1,16 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 
 class UserCreate(BaseModel):
     username: str = Field(..., pattern=r"^[A-Za-z0-9]{4,}$")
-    password: str = Field(..., pattern=r"^[A-Za-z0-9]{4,}$")
+    password: str = Field(..., min_length=8, max_length=72)
+
+    @field_validator("password")
+    @classmethod
+    def password_fits_bcrypt(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must fit within 72 UTF-8 bytes")
+        return value
 
 class ChatRequest(BaseModel):
     session_id: str

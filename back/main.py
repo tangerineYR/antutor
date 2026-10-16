@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from config import ALLOWED_ORIGINS
 
 # Import standard routers
 from routers import users, dictionary, chat, sandbox, benchmark, attendance, quiz
@@ -40,30 +41,17 @@ app = FastAPI(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"🚨 422 Validation Error on {request.url}: {exc.errors()}", flush=True)
-    print(f"🚨 Body: {exc.body}", flush=True)
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors(), "body": exc.body},
-    )
+    # Pydantic errors include input/ctx (including passwords); allowlist safe fields.
+    errors = [{"loc": error["loc"], "type": error["type"],
+               "msg": "Invalid value" if error["type"] == "value_error" else error["msg"]}
+              for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:8080",
-        # --- Production (Vercel, Netlify, Cloudflare) ---
-        "https://antutor.vercel.app",
-        "https://antutor-front.vercel.app",
-        "https://antutor.netlify.app",
-        "https://antutor.pages.dev",  # Cloudflare Pages URL
-    ],
-    allow_origin_regex=r"https://.*\.(vercel|netlify|pages)\.(app|dev)",  # 모든 Vercel/Netlify/Cloudflare 프리뷰 URL 허용
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

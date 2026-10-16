@@ -843,6 +843,10 @@ async def end_session(request: EndSessionRequest, current_user: dict = Depends(g
 
 @router.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
+    from config import ALLOWED_ORIGINS
+    if websocket.headers.get("origin") not in ALLOWED_ORIGINS:
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     
     try:

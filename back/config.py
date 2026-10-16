@@ -2,9 +2,15 @@ import os
 from dotenv import load_dotenv
 
 # .env 파일의 환경 변수를 불러옵니다. (override=True로 핫리로드 시 즉각 반영)
-load_dotenv(override=True)
+load_dotenv(override=False)
 # --- Authentication Configuration ---
-SECRET_KEY = os.getenv("SECRET_KEY", "your-very-secure-secret-key-capstone-2026")
+from security_config import validate_secret, parse_origins
+SECRET_KEY = validate_secret(os.getenv("SECRET_KEY"))
+ENABLE_BENCHMARK_ENDPOINT = os.getenv("ENABLE_BENCHMARK_ENDPOINT", "false").lower() == "true"
+ALLOWED_ORIGINS = parse_origins(os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,https://antutor.pages.dev",
+))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 1 week expiration
 

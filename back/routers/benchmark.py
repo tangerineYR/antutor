@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from dependencies import get_current_user
+from config import ENABLE_BENCHMARK_ENDPOINT
 import asyncio
 import time
 import json
@@ -16,7 +18,14 @@ from multi_agent.nodes import (
 )
 from multi_agent.graph import debate_graph
 
-router = APIRouter(prefix="/benchmark", tags=["performance"])
+async def require_benchmark_enabled():
+    if not ENABLE_BENCHMARK_ENDPOINT:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+router = APIRouter(prefix="/benchmark", tags=["performance"], dependencies=[
+    Depends(require_benchmark_enabled), Depends(get_current_user),
+])
 
 
 @router.post("/sync")

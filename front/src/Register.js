@@ -58,7 +58,7 @@ const Register = ({ onGoToLogin, language = 'ko', onLanguageChange }) => {
       alert(t(language, 'loginPasswordPlaceholder'));
       return;
     }
-    if (!/^[a-z0-9]{4,}$/.test(password)) {
+    if ([...password].length < 8 || [...password].length > 72 || new TextEncoder().encode(password).length > 72) {
       alert(t(language, 'invalidPassword'));
       return;
     }
