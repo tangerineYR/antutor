@@ -2,34 +2,12 @@
 # EconomicConcept 노드 간의 관계를 양방향으로 조회하여
 # LLM 프롬프트에 사용할 수 있는 텍스트 형태로 반환합니다.
 
-import ssl
-import certifi
 from neo4j import AsyncGraphDatabase
 from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, NEO4J_DATABASE
+from services.concept_normalization import normalize_concept
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Windows 환경에서 neo4j+s:// (라우팅+TLS) URI 는 자체 SSL 처리를 하므로
-# certifi CA 번들을 직접 주입할 수 없습니다.
-# 대신 bolt:// URI + encrypted=True + certifi ssl_context 조합으로
-# 동일하게 TLS 연결을 수립합니다.
-# .env 의 NEO4J_URI 는 "neo4j+s://..." 형태로 유지하고,
-# 여기서 호스트만 파싱하여 bolt:// URI 를 재조립합니다.
-# ─────────────────────────────────────────────────────────────────────────────
-def _make_neo4j_uri(uri: str) -> str:
-    """neo4j+s:// URI에서 호스트를 추출해 neo4j:// URI로 변환.
-    neo4j:// = 라우팅 프로토콜 (홈 DB 자동 선택) + certifi SSL 주입 가능.
-    """
-    for prefix in ("neo4j+s://", "neo4j+ssc://", "bolt+s://", "bolt+ssc://", "bolt://"):
-        if uri.startswith(prefix):
-            return "neo4j://" + uri[len(prefix):]
-    if uri.startswith("neo4j://"):
-        return uri  # 이미 올바른 형태
-    return uri
-
-
-_NEO4J_URI   = _make_neo4j_uri(NEO4J_URI)
-_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
-
+# The driver handles neo4j+s/bolt+s TLS verification. Plain bolt is supported
+# for the loopback-only Docker development instance; do not strip secure schemes.
 # Relationship type -> English description mapping
 ACTION_EN_MAP = {
     "CAUSES": "causes or affects",
@@ -54,12 +32,7 @@ async def get_neo4j_driver():
     global _driver
     if _driver is None:
         _driver = AsyncGraphDatabase.driver(
-            _NEO4J_URI,
-            auth=(NEO4J_USER, NEO4J_PASSWORD),
-            encrypted=True,
-            ssl_context=_SSL_CONTEXT,
-            max_connection_pool_size=50,
-            max_connection_lifetime=200  # Cloud 로드밸런서 유휴 커넥션 끊김 방지
+            NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
         )
     return _driver
 
@@ -74,10 +47,10 @@ async def get_economic_facts(keyword: str) -> str:
     driver = await get_neo4j_driver()
     
     async def _fetch_records(tx):
-        _res = await tx.run(_CYPHER_QUERY, keyword=keyword)
+        _res = await tx.run(_CYPHER_QUERY, keyword=normalize_concept(keyword))
         return await _res.data()
 
-    async with driver.session() as session:
+    async with driver.session(database=NEO4J_DATABASE) as session:
         # execute_read는 커넥션 끊김 등 Transient Error 발생 시 자동 재시도를 수행합니다.
         records = await session.execute_read(_fetch_records)
 

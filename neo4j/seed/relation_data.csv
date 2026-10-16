@@ -1,0 +1,70 @@
+source,target,relationship,reason
+aggregate demand,gross domestic product,CAUSES,소비 증가가 GDP 확대
+aggregate demand,inflation,CAUSES,총수요 증가 시 물가 상승 가능
+aggregate demand,gross domestic product,RELATED_TO,총수요 증가는 GDP 성장 유도
+aggregate demand,money supply,RELATED_TO,통화량 증가가 수요 확대 가능
+aggregate supply,inflation,CAUSES,공급 감소 시 물가 상승 가능
+aggregate supply,gross domestic product,RELATED_TO,총공급은 생산량과 연결
+aggregate supply,producer price index,RELATED_TO,생산비 변화와 공급 연결
+bank run,money supply,CAUSES,대규모 인출이 유동성 축소 가능
+bank run,base interest rate,RELATED_TO,금리 변화가 금융 불안에 영향 가능
+bank run,central bank,RELATED_TO,중앙은행이 금융시장 안정 대응
+base interest rate,discount rate,RELATED_TO,할인율과 기준금리는 함께 움직임
+base interest rate,money supply,RELATED_TO,금리와 통화량은 상호 영향
+base interest rate,nominal interest rate,RELATED_TO,기준금리 영향 받음
+capital inflow,exchange rate,CAUSES,자본 유입 시 통화가치 상승 가능
+capital inflow,capital outflow,CONTRASTS_WITH,자본 유출 vs 유입
+capital inflow,foreign exchange reserves,RELATED_TO,외환보유액 증가 가능
+capital inflow,purchasing power parity,RELATED_TO,환율 변화와 연결
+capital outflow,exchange rate,CAUSES,자본 유출 시 통화가치 하락 가능
+capital outflow,foreign exchange reserves,RELATED_TO,외환보유액 감소 가능
+central bank,base interest rate,CAUSES,중앙은행이 기준금리 결정
+central bank,discount rate,RELATED_TO,중앙은행이 할인율 결정
+central bank,foreign exchange reserves,RELATED_TO,중앙은행이 관리
+central bank,government bond,RELATED_TO,중앙은행의 국채 매입 가능
+central bank,liquidity,RELATED_TO,중앙은행이 유동성 조절
+central bank,monetary policy,RELATED_TO,통화정책 수행 기관
+compound interest,nominal interest rate,RELATED_TO,복리 계산 기반 금리
+compound interest,base interest rate,REQUIRES,복리 이해에 금리 개념 필요
+consumer price index,producer price index,CONTRASTS_WITH,생산자 vs 소비자 물가
+consumer price index,price index,PART_OF,CPI는 물가지수의 한 종류
+consumer price index,inflation,RELATED_TO,인플레이션 측정 지표
+deflation,inflation,CONTRASTS_WITH,물가 하락 vs 상승
+deflation,price index,RELATED_TO,물가지수 하락 현상
+discount rate,monetary policy,PART_OF,통화정책 도구
+exchange rate,inflation,CAUSES,물가 상승이 환율 변동 유발 가능
+exchange rate,trade balance,RELATED_TO,환율이 무역수지 영향
+fiscal policy,gross domestic product,CAUSES,정부지출 확대가 GDP 증가 가능
+fiscal policy,inflation,CAUSES,확장 재정정책은 물가 상승 가능
+fiscal policy,monetary policy,CONTRASTS_WITH,재정정책 vs 통화정책
+foreign exchange reserves,exchange rate,CAUSES,외환보유액으로 환율 안정
+government bond,nominal interest rate,RELATED_TO,채권금리와 명목금리 연결
+government bond,real interest rate,RELATED_TO,실질금리가 채권 수익성 영향
+gross domestic product,recession,CONTRASTS_WITH,경기침체 시 GDP 감소
+gross domestic product,inflation,RELATED_TO,물가와 경제성장률은 밀접하게 연결
+inflation,nominal interest rate,RELATED_TO,명목금리와 물가 연결
+inflation,producer price index,RELATED_TO,미래 물가 상승 압력 분석
+inflation,purchasing power parity,RELATED_TO,국가 간 물가 차이 반영
+inflation,trade balance,RELATED_TO,물가 상승이 수출 경쟁력 약화 가능
+inflation,unemployment rate,RELATED_TO,필립스 곡선 관점 연결
+liquidity,monetary policy,RELATED_TO,통화정책 주요 목표 중 하나
+liquidity,money supply,RELATED_TO,유동성과 통화량 연결
+monetary policy,inflation,CAUSES,통화정책이 물가에 영향
+monetary policy,base interest rate,PART_OF,기준금리는 통화정책 수단
+money supply,inflation,CAUSES,통화량 증가가 물가 상승 유발
+nominal interest rate,real interest rate,CONTRASTS_WITH,실질 vs 명목 금리
+open market operations,money supply,CAUSES,채권 매매로 통화량 조절
+open market operations,central bank,PART_OF,중앙은행의 정책 수단
+open market operations,monetary policy,PART_OF,공개시장조작은 통화정책 일부
+opportunity cost,base interest rate,CAUSES,금리 상승 시 기회비용 증가
+purchasing power parity,trade balance,RELATED_TO,상대 물가와 무역 경쟁력 연결
+purchasing power parity,exchange rate,REQUIRES,PPP 이해에 환율 개념 필요
+real interest rate,inflation,REQUIRES,실질금리 계산에 물가 필요
+real interest rate,nominal interest rate,REQUIRES,실질금리는 명목금리 기반
+recession,deflation,CAUSES,경기침체가 디플레이션 유발 가능
+recession,gross domestic product,CAUSES,경기침체는 GDP 감소 유발
+recession,unemployment rate,CAUSES,경기침체로 실업 증가
+recession,stagflation,RELATED_TO,경기침체 성격 포함
+recession,unemployment rate,RELATED_TO,경기침체 시 실업률 증가
+stagflation,unemployment rate,RELATED_TO,물가 상승과 실업 공존 | 스태그플레이션은 높은 실업 동반
+stagflation,inflation,REQUIRES,스태그플레이션 이해에 인플레이션 필요
