@@ -1,11 +1,3 @@
-import sys
-if sys.platform != "win32":
-    try:
-        import uvloop
-        uvloop.install()
-    except ImportError:
-        pass
-
 from contextlib import asynccontextmanager
 import asyncio
 from fastapi import FastAPI, Request
