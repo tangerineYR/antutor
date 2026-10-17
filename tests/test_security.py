@@ -47,3 +47,9 @@ async def test_guardrail_persists_and_blocks(monkeypatch, transport, failure):
     assert record["threat_type"] == "prompt_injection"
     assert record["transport"] == transport
     assert "private-text" not in str(record)
+
+def test_enabled_benchmark_still_requires_auth(monkeypatch):
+    import routers.benchmark as benchmark
+    monkeypatch.setattr(benchmark,'ENABLE_BENCHMARK_ENDPOINT',True)
+    for path in ('sync','async'):
+        assert client.post('/benchmark/'+path,json={}).status_code==401

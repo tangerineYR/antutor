@@ -25,3 +25,11 @@ def test_password_and_jwt():
 @pytest.mark.parametrize("password", ["short", "x" * 73, "한" * 25])
 def test_password_bounds(password):
     with pytest.raises(ValidationError): UserCreate(username="learner", password=password)
+
+def test_startup_fails_without_secret():
+    import os, subprocess, sys
+    from pathlib import Path
+    env=os.environ.copy();env['SECRET_KEY']=''
+    result=subprocess.run([sys.executable,'-c','import main'],cwd=Path(__file__).parents[1]/'back',
+                          env=env,capture_output=True,text=True)
+    assert result.returncode!=0 and 'SECRET_KEY must' in result.stderr
