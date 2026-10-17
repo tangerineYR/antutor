@@ -60,8 +60,6 @@ app.add_middleware(
 # ---------------------------------------------------------
 # Application API Endpoints (Routers)
 # ---------------------------------------------------------
-from database import supabase
-
 app.include_router(users.router)
 app.include_router(dictionary.router)
 app.include_router(chat.router)
@@ -69,10 +67,6 @@ app.include_router(sandbox.router)
 app.include_router(benchmark.router)
 app.include_router(attendance.router)
 app.include_router(quiz.router)
-
-@app.get("/debug-concepts")
-def debug_concepts():
-    return supabase.table("concepts").select("name").execute().data
 
 @app.get("/")
 @app.head("/")
