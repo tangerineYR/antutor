@@ -21,3 +21,8 @@ Neo4j includes `recession`, a relationship-only node absent from the supplied
 concept catalog. No definition or concept ID was invented for that node.
 The graph alias `gross domestic product (gdp)` maps to catalog name
 `gross domestic product`.
+
+Source completeness: 12 records have empty definitions (IDs: 9, 12, 13, 15, 16, 21, 22, 25, 27, 28, 29, 30).
+12 records contain placeholder dictionary text. These supplied gaps are
+preserved rather than filled with invented content; curate them before using those
+concepts for assessed tutoring. Canonical CSV uses LF line endings.
