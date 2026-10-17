@@ -57,11 +57,6 @@ def save_chat_log_db(chat_log_payload):
         else:
             error_msg = f"Failed to save chat log to DB: {e}"
             print(error_msg, flush=True)
-            try:
-                with open("db_error.log", "a", encoding="utf-8") as f:
-                    f.write(f"[{datetime.now().isoformat()}] {error_msg} | Payload: {json.dumps(chat_log_payload, ensure_ascii=False)}\n")
-            except:
-                pass
 
 async def db(fn):
     """
@@ -101,8 +96,11 @@ _SHORT_ANSWER_REPROMPT_EN = (
 
 
 def save_debate_log(session_id, concept, user_answer, draft_reviews, critiques, final_synthesis):
+    from config import ENABLE_PRIVATE_DEBUG_LOGS, PRIVATE_LOG_DIR
+    if not ENABLE_PRIVATE_DEBUG_LOGS:
+        return
     try:
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+        log_dir = PRIVATE_LOG_DIR
         os.makedirs(log_dir, exist_ok=True)
         log_path = os.path.join(log_dir, "debate_logs.jsonl")
         

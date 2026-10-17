@@ -51,3 +51,7 @@ GIVE_UP_KEYWORDS = [
     "설명 못하", "몰라"
 ]
 
+
+# Private learner/model traces are opt-in and must never be committed.
+ENABLE_PRIVATE_DEBUG_LOGS = os.getenv("ENABLE_PRIVATE_DEBUG_LOGS", "false").lower() == "true"
+PRIVATE_LOG_DIR = os.getenv("PRIVATE_LOG_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "runtime-logs"))

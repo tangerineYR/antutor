@@ -31,7 +31,11 @@ router = APIRouter()
 def save_sandbox_log(request_data: dict, response_data: any, test_type: str = "generic"):
     import os
     
-    file_path = "sandbox_logs.jsonl"
+    from config import ENABLE_PRIVATE_DEBUG_LOGS, PRIVATE_LOG_DIR
+    if not ENABLE_PRIVATE_DEBUG_LOGS:
+        return
+    os.makedirs(PRIVATE_LOG_DIR, exist_ok=True)
+    file_path = os.path.join(PRIVATE_LOG_DIR, "sandbox_logs.jsonl")
     log_entry = {
         "timestamp": datetime.now().isoformat(),
         "test_type": test_type,
