@@ -1,6 +1,6 @@
 # Concept seed provenance
 
-Two user-supplied exports contain the same field values, with different column
+Two original project exports contain the same field values, with different column
 ordering. Each has 50 CSV rows: 30 concepts and 20 entirely empty rows. The
 canonical `concepts.csv` removes only empty rows and reorders columns. Original
 IDs (1–30), category, definitions, dictionary content, acceptable extensions,
