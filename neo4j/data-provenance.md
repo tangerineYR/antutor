@@ -1,6 +1,6 @@
 # Graph seed provenance
 
-Source: user-uploaded `relation_data.csv` (80 rows, UTF-8).
+Source: original project `relation_data.csv` (80 rows, UTF-8).
 SHA-256 of the supplied bytes: `d76ef7b46ce3f7850e2628a85bfeb74dd1d8c0c38a4381261314e4ad4f2d7cf2`.
 
 Canonical output: `seed/relation_data.csv`, 69 relationships over 32 concepts.
