@@ -1,6 +1,6 @@
 # Development and verification
 
-README is intentionally unchanged. The executable backend is FastAPI + LangGraph,
+The executable backend is FastAPI + LangGraph,
 Ollama/OpenAI-compatible inference, Supabase, optional Neo4j/Tavily/Azure Translator.
 
 Use Python 3.12 and Node 22 LTS. From the repository root:
@@ -54,7 +54,7 @@ to chat_logs; assessment adds hakes_gain and unique daily attendance. Review rem
 and back up an existing database before preparing a deployment-specific upgrade;
 do not run the baseline over existing tables. Existing `security_logs` may need
 its columns aligned with `user_id`, `threat_type`, `transport`, `created_at`.
-This is a **historical DB schema → current portfolio backend contract migration**,
+This is a **fresh-database baseline aligned with the current backend contract**,
 not a claim about an RPC mismatch in the existing live database. The cache requires `namespace`, a unique namespace index, `hit_count`, and the v2
 RPC. Existing unscoped cache rows are never read by the new application.
 
@@ -150,7 +150,7 @@ using backend/admin privileges.
 
 ## Neo4j
 
-`neo4j/seed/relation_data.csv` comes from the user-supplied 80-row relation dataset.
+`neo4j/seed/relation_data.csv` comes from the original 80-row project relation dataset.
 Normalization produces 32 concepts and 69 unique relationships. Reversed
 RELATED_TO/CONTRASTS_WITH edges collapse; CAUSES/PART_OF/REQUIRES retain their
 supplied direction. Distinct reasons on the same edge are joined, not discarded.
