@@ -108,7 +108,7 @@ flowchart TD
     API --> AUTH[JWT Authentication<br/>Session Ownership Check]
     AUTH --> GUARD[Input Guardrail]
 
-    GUARD --> RAG{Parallel Context Retrieval}
+    GUARD --> RAG[External Context Retrieval]
 
     RAG --> TAVILY[Tavily<br/>Market Context]
     RAG --> NEO4J[Neo4j<br/>Economic Relationships]
@@ -142,7 +142,13 @@ flowchart TD
     SYN --> RESULT
 ```
 
-세 Expert Agent의 Draft와 Cross Review는 각각 `asyncio.gather()`로 병렬 실행합니다.
+Tavily와 Neo4j는 서로 다른 Agent context를 구성합니다.
+
+WebSocket chat path에서는 두 context를 `asyncio.gather()`로 병렬 조회하며,
+REST `/chat` path에서는 현재 순차적으로 조회합니다.
+
+이와 별개로 LangGraph 내부의 세 Expert Draft와 세 Rebuttal은
+각각 `asyncio.gather()`를 통해 병렬 실행합니다.
 
 동시에 무제한 LLM 호출이 발생하지 않도록 `asyncio.Semaphore`를 두어  
 **Application-level Parallelism과 Inference Resource Protection을 분리**했습니다.
@@ -855,7 +861,11 @@ antutor/
 │   └── seed_neo4j.py
 │
 ├── docs/
-│   └── development.md
+│   ├── development.md
+│   ├── examples/
+│   │   └── security-event.json
+│   └── experiments/
+│       └── vllm-qwen3-colab.ipynb
 │
 ├── .github/
 │   └── workflows/
