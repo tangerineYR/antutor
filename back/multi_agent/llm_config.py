@@ -13,15 +13,16 @@ from config import (
     DRAFT_LLM_ENDPOINT,
     DEBATE_LLM_ENDPOINT,
     LLM_BACKEND_TYPE,
-    VLLM_API_KEY
+    VLLM_API_KEY,
+    vllm_base_url,
 )
 
 if LLM_BACKEND_TYPE.lower() == "vllm":
     from langchain_openai import ChatOpenAI
-    # 1. vLLM 기반 OpenAI 호환 API (RunPod 등)
+    # 1. Project deployment: GCP vLLM, OpenAI-compatible API.
     # vLLM endpoint usually ends with /v1
-    draft_base_url = DRAFT_LLM_ENDPOINT if DRAFT_LLM_ENDPOINT.endswith("/v1") else DRAFT_LLM_ENDPOINT + "/v1"
-    debate_base_url = DEBATE_LLM_ENDPOINT if DEBATE_LLM_ENDPOINT.endswith("/v1") else DEBATE_LLM_ENDPOINT + "/v1"
+    draft_base_url = vllm_base_url(DRAFT_LLM_ENDPOINT)
+    debate_base_url = vllm_base_url(DEBATE_LLM_ENDPOINT)
     
     draft_llm = ChatOpenAI(
         model=DRAFT_LLM_MODEL,

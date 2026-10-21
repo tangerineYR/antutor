@@ -23,7 +23,7 @@ from services.llm_agent import (
     call_scaffold_eval
 )
 from services.translator import translate_ko_to_en, translate_en_to_ko
-from config import LOCAL_LLM_MODEL, LOCAL_LLM_ENDPOINT
+from config import LOCAL_LLM_MODEL, LOCAL_LLM_ENDPOINT, LLM_BACKEND_TYPE, VLLM_API_KEY, vllm_base_url
 from dependencies import get_current_user
 
 router = APIRouter()
@@ -71,10 +71,26 @@ async def ai_test_sandbox(request: PromptTuningSandboxRequest, current_user: str
     
     if request.is_json:
         payload["format"] = "json"
+
+    endpoint = LOCAL_LLM_ENDPOINT
+    headers = {}
+    if LLM_BACKEND_TYPE == "vllm":
+        endpoint = vllm_base_url(endpoint) + "/chat/completions"
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": request.temperature,
+            "max_tokens": 512,
+            "stream": False,
+        }
+        if request.is_json:
+            payload["response_format"] = {"type": "json_object"}
+        if VLLM_API_KEY:
+            headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
         
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(LOCAL_LLM_ENDPOINT, json=payload, timeout=120.0)
+            response = await client.post(endpoint, json=payload, headers=headers, timeout=120.0)
             response.raise_for_status()
             data = response.json()
             

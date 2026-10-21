@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from config import (
     LOCAL_LLM_ENDPOINT, LOCAL_LLM_MODEL,
-    TAVILY_API_KEY, LLM_BACKEND_TYPE, VLLM_API_KEY
+    TAVILY_API_KEY, LLM_BACKEND_TYPE, VLLM_API_KEY, vllm_base_url
 )
 from services.knowledge_graph import retrieve_knowledge_graph  # noqa: F401 — re-exported
 from multi_agent.prompts import (
@@ -68,8 +68,7 @@ async def call_local_llm(prompt: str, is_json: bool = False, model: Optional[str
     
     if LLM_BACKEND_TYPE.lower() == "vllm":
         # vLLM (OpenAI Format)
-        endpoint = LOCAL_LLM_ENDPOINT if LOCAL_LLM_ENDPOINT.endswith("/v1") else LOCAL_LLM_ENDPOINT + "/v1"
-        endpoint += "/chat/completions"
+        endpoint = vllm_base_url(LOCAL_LLM_ENDPOINT) + "/chat/completions"
         if VLLM_API_KEY:
             headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
             

@@ -16,14 +16,31 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 1 week expiration
 
 # --- Constants are now managed in DB ---
 
-LLM_BACKEND_TYPE = os.getenv("LLM_BACKEND_TYPE", "ollama")
-LOCAL_LLM_ENDPOINT = os.getenv("LOCAL_LLM_ENDPOINT", "http://localhost:11434/api/chat")
+# Project deployment: vLLM / Qwen3-14B-AWQ. Ollama remains an explicit local option.
+LLM_BACKEND_TYPE = os.getenv("LLM_BACKEND_TYPE", "vllm").strip().lower()
+if LLM_BACKEND_TYPE not in {"vllm", "ollama"}:
+    raise ValueError("LLM_BACKEND_TYPE must be vllm or ollama")
+
+
+def vllm_base_url(endpoint: str) -> str:
+    endpoint = endpoint.rstrip("/")
+    return endpoint if endpoint.endswith("/v1") else endpoint + "/v1"
+
+
+_default_endpoint = ("http://localhost:8000/v1" if LLM_BACKEND_TYPE == "vllm"
+                     else "http://localhost:11434/api/chat")
+_default_model = "Qwen/Qwen3-14B-AWQ" if LLM_BACKEND_TYPE == "vllm" else "qwen3:8b"
+LOCAL_LLM_ENDPOINT = os.getenv("LOCAL_LLM_ENDPOINT", _default_endpoint)
 DRAFT_LLM_ENDPOINT = os.getenv("DRAFT_LLM_ENDPOINT", LOCAL_LLM_ENDPOINT)
 DEBATE_LLM_ENDPOINT = os.getenv("DEBATE_LLM_ENDPOINT", LOCAL_LLM_ENDPOINT)
+if LLM_BACKEND_TYPE == "vllm":
+    LOCAL_LLM_ENDPOINT = vllm_base_url(LOCAL_LLM_ENDPOINT)
+    DRAFT_LLM_ENDPOINT = vllm_base_url(DRAFT_LLM_ENDPOINT)
+    DEBATE_LLM_ENDPOINT = vllm_base_url(DEBATE_LLM_ENDPOINT)
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
-LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen3:8b")
-DRAFT_LLM_MODEL = os.getenv("DRAFT_LLM_MODEL", "qwen3:8b")
-DEBATE_LLM_MODEL = os.getenv("DEBATE_LLM_MODEL", "qwen3:8b")
+LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", _default_model)
+DRAFT_LLM_MODEL = os.getenv("DRAFT_LLM_MODEL", LOCAL_LLM_MODEL)
+DEBATE_LLM_MODEL = os.getenv("DEBATE_LLM_MODEL", LOCAL_LLM_MODEL)
 # NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")  # Deprecated: replaced by Tavily Search
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 # DEEPL_API_KEY = os.getenv("DEEPL_API_KEY", "")  # Deprecated: replaced by Azure Translator

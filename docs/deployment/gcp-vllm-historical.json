@@ -1,0 +1,45 @@
+{
+  "description": "Normalized historical project configuration; not a live runtime export.",
+  "platform": {
+    "provider": "GCP Compute Engine",
+    "machine_type": "g2-standard-4",
+    "vcpus": 4,
+    "ram_gb": 16,
+    "gpu": "NVIDIA L4",
+    "gpu_count": 1,
+    "vram_gb": 24,
+    "os": "Ubuntu 22.04 LTS"
+  },
+  "inference": {
+    "backend": "vllm",
+    "model": "Qwen/Qwen3-14B-AWQ",
+    "image_reference": "vllm/vllm-openai:latest",
+    "image_digest": null,
+    "model_revision": null,
+    "quantization": "awq",
+    "gpu_memory_utilization": 0.95,
+    "max_model_len": 4096,
+    "enable_prefix_caching": true
+  },
+  "client": {
+    "LLM_BACKEND_TYPE": "vllm",
+    "LOCAL_LLM_MODEL": "Qwen/Qwen3-14B-AWQ",
+    "DRAFT_LLM_MODEL": "Qwen/Qwen3-14B-AWQ",
+    "DEBATE_LLM_MODEL": "Qwen/Qwen3-14B-AWQ"
+  },
+  "record_scope": {
+    "hardware_record_month": "2026-05",
+    "model_configuration_month": "2026-05",
+    "earlier_model_stage": "8B AWQ",
+    "excluded": [
+      "server addresses",
+      "account identifiers",
+      "API keys"
+    ],
+    "limitations": [
+      "Earlier descriptive text still mentioned 8B; later launch and client settings specified 14B.",
+      "The hardware and model settings are a consolidation of project operating records, not a captured single-run manifest.",
+      "Exact image digest, model revision and inference logs are not available."
+    ]
+  }
+}
