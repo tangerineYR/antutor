@@ -1162,15 +1162,21 @@ LLM의 factual correctness를 절대적으로 보장하지 않습니다.
 
 ---
 
-# 📄 License & Usage
+## 📄 License & Usage
 
-현재 이 Repository에는 별도의 Open Source License가 부여되어 있지 않습니다.
+This repository does not currently grant a separate open-source license.
 
-Repository가 공개되어 있다는 사실만으로 코드에 대한 별도의 사용·수정·재배포 권한이
-자동으로 부여되는 것은 아닙니다.
+Antutor was originally developed as a team capstone project, and this repository
+is a personal portfolio fork of the original team repository. The portfolio
+version includes additional refactoring and engineering work, but the repository
+also contains work originating from the team project.
 
-Third-party libraries, APIs, models, datasets 및 기타 외부 자원은
-각각의 License와 Terms of Use를 따릅니다.
+Accordingly, no permission to use, modify, redistribute, or sublicense the
+repository contents is granted beyond rights provided by GitHub's Terms of Service
+or applicable law.
+
+Third-party libraries, APIs, models, datasets, and other external resources remain
+subject to their respective licenses and terms of use.
 
 ---
 
