@@ -1,7 +1,10 @@
 # Development and verification
 
 The executable backend is FastAPI + LangGraph,
-Ollama/OpenAI-compatible inference, Supabase, optional Neo4j/Tavily/Azure Translator.
+vLLM/OpenAI-compatible inference, Supabase, optional Ollama/Neo4j/Tavily/Azure Translator.
+The default model is `Qwen/Qwen3-14B-AWQ`; see the
+[GCP/vLLM configuration](deployment/gcp-vllm.md) for server setup and the explicit
+Ollama alternative. Unit and non-LLM API tests do not require a model server.
 
 Use Python 3.12 and Node 22 LTS. From the repository root:
 

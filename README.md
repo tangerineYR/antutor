@@ -184,8 +184,8 @@ flowchart LR
 프로젝트 당시에는 **Qwen3-14B-AWQ**를 GCP Compute Engine의 **NVIDIA L4 24GB** 환경에서
 vLLM 기반으로 self-hosted serving했습니다.
 
-현재 Repository는 특정 Cloud 환경에 종속되지 않도록  
-**Local Ollama**와 **OpenAI-compatible vLLM Endpoint**를 모두 지원합니다.
+현재 기본 설정은 **vLLM + Qwen3-14B-AWQ**이며, Local Ollama도 선택할 수 있습니다.
+배포 당시 모델·GPU의 출처와 연결 방법은 [GCP/vLLM 가이드](docs/deployment/gcp-vllm.md)에 정리되어 있습니다.
 
 ---
 
@@ -423,6 +423,7 @@ neo4j/
 
 > 이 수치는 프로젝트 당시의 broad semantic cache에 대한 단일 시나리오 측정 결과입니다.  
 > 현재 Portfolio 버전의 end-to-end benchmark를 의미하지 않습니다.
+> [당시 차트·측정 조건·확인 한계](docs/evaluation/semantic-cache-historical.md)
 
 Portfolio Refactoring에서는 hit rate보다 **pedagogical correctness**를 우선하도록 Cache를 보수적으로 변경했습니다.
 
@@ -695,12 +696,12 @@ FastAPI가 문제/선택지만 전달한 뒤 서버에서 채점합니다.
 
 ## Learning Effect
 
-프로젝트 최종 사용자 평가에서는 Antutor 사용 전후의 CBM 기반 학습 점수가:
+프로젝트 사용자 평가의 점수표(n=25)에서 Antutor 사용 전후의 CBM 원점수 평균은:
 
 ```text
-PRE   4
+PRE   3.52
       ↓
-POST  6
+POST  5.92
 ```
 
 으로 향상되었습니다.
@@ -708,17 +709,20 @@ POST  6
 | Metric | Result |
 |---|---:|
 | Participants | **n = 25** |
-| PRE → POST | **4 → 6** |
-| Statistical Significance | **p < 0.003** |
-| Effect Size | **Cohen's d = 0.66** |
+| PRE → POST (원점수 평균) | **3.52 → 5.92** |
+| 정규화 향상도 vs 0 (일표본 t 검정) | **p ≈ 0.003** |
+| 정규화 향상도 효과크기 | **Cohen's d ≈ 0.66** |
 
-이는 **Antutor 사용 집단 내부의 사전·사후 향상**을 의미합니다.
+위 p와 d는 **공개 평가 집계의 정규화 향상도를 0과 비교하여 계산한 결과**입니다.
+원점수 사전·사후 대응표본 검정은 p≈0.204이며, 두 분석을 구분해야 합니다.
+[평가 집계·수식·재현 코드](docs/evaluation/user-evaluation.md)
 
 비교군 역시 향상을 보였으므로, 이 결과를  
 “Antutor가 다른 학습 방식보다 우월하다는 인과적 증명”으로 해석하지 않습니다.
 
 프로젝트 최종 사용자 평가에서는 학습 도움도/힌트 관련 사용자 평가도 함께 수행했으며,
-**4.19 / 5.0 수준의 평가와 4점 이상 긍정 응답 78%**가 보고되었습니다.
+**학습 도움도 4.22/5.0, 4점 이상 25/32명(78.125%)**으로 집계되었습니다.
+힌트 적절성은 별도 문항으로 **4.10/5.0(n=31)**이며, 학습 점수 표본(n=25)과 구분합니다.
 
 ---
 
@@ -754,8 +758,8 @@ Graph
 └── Repeatable Import Check
 ```
 
-현재 `main` 기준 **Backend 78 tests가 통과**하며,
-Backend / Database / Frontend / Graph CI job이 모두 Green 상태입니다.
+**Backend 86 tests**와 로컬 API 통합 검사로 동작을 확인합니다.
+Backend / Database / Frontend / Graph CI 결과는 상단 Verification 배지에서 확인할 수 있습니다.
 
 ---
 
@@ -767,7 +771,8 @@ Backend / Database / Frontend / Graph CI job이 모두 Green 상태입니다.
 | **Agent Orchestration** | LangGraph · LangChain |
 | **Concurrency** | asyncio · Semaphore |
 | **LLM** | Qwen3 |
-| **Local Inference** | Ollama |
+| **Default Inference** | vLLM · Qwen3-14B-AWQ |
+| **Optional Local Inference** | Ollama · Qwen3 8B |
 | **Hosted Inference** | vLLM · OpenAI-compatible API |
 | **Project-time GPU Deployment** | GCP Compute Engine · NVIDIA L4 24GB · AWQ |
 | **Relational Database** | Supabase PostgreSQL |
@@ -849,6 +854,7 @@ antutor/
 │   ├── test_scaffolding.py
 │   ├── test_quiz_scoring.py
 │   ├── test_websocket_auth.py
+│   ├── test_llm_configuration.py
 │   ├── integration/
 │   ├── performance/
 │   └── sql/
@@ -856,16 +862,29 @@ antutor/
 ├── scripts/
 │   ├── db/
 │   ├── diagnostics/
+│   ├── evaluation/
+│   │   ├── user_evaluation.py
+│   │   └── requirements.txt
 │   ├── create_local_env.py
 │   ├── generate_concept_seed.py
 │   └── seed_neo4j.py
 │
 ├── docs/
 │   ├── development.md
+│   ├── deployment/
+│   │   ├── gcp-vllm.md
+│   │   └── gcp-vllm-historical.json
+│   ├── evaluation/
+│   │   ├── data-provenance.md
+│   │   ├── semantic-cache-historical.md
+│   │   ├── user-evaluation.md
+│   │   └── artifacts/
+│   │       ├── semantic-cache-historical.png
+│   │       └── user-evaluation-summary.json
 │   ├── examples/
 │   │   └── security-event.json
 │   └── experiments/
-│       └── vllm-qwen3-colab.ipynb
+│       └── vllm_qwen3_colab.ipynb
 │
 ├── .github/
 │   └── workflows/
@@ -974,24 +993,21 @@ python scripts/seed_neo4j.py
 
 ## 6. LLM Backend
 
-기본 설정은 Local Ollama를 사용합니다.
-
-```env
-LLM_BACKEND_TYPE=ollama
-DRAFT_LLM_MODEL=qwen3:8b
-DEBATE_LLM_MODEL=qwen3:8b
-```
-
-별도의 Ollama server를 실행하거나,
-OpenAI-compatible vLLM Endpoint를 사용할 수 있습니다.
+기본 설정은 프로젝트 배포와 같은 **vLLM + Qwen3-14B-AWQ**입니다.
+별도의 GPU 추론 서버 또는 해당 서버로 연결하는 SSH 터널이 필요합니다.
 
 ```env
 LLM_BACKEND_TYPE=vllm
-DRAFT_LLM_ENDPOINT=https://your-model-host/v1
-DEBATE_LLM_ENDPOINT=https://your-model-host/v1
-DRAFT_LLM_MODEL=your-model
-DEBATE_LLM_MODEL=your-model
+LOCAL_LLM_ENDPOINT=http://localhost:8000/v1
+DRAFT_LLM_ENDPOINT=http://localhost:8000/v1
+DEBATE_LLM_ENDPOINT=http://localhost:8000/v1
+LOCAL_LLM_MODEL=Qwen/Qwen3-14B-AWQ
+DRAFT_LLM_MODEL=Qwen/Qwen3-14B-AWQ
+DEBATE_LLM_MODEL=Qwen/Qwen3-14B-AWQ
 ```
+
+인증 키, 원격 주소 및 Ollama 선택 방법은 [GCP/vLLM 가이드](docs/deployment/gcp-vllm.md)를 참고하세요.
+LLM 서버 없이도 단위 테스트와 로컬 DB/API 검사는 실행할 수 있지만, 실제 AI 응답은 생성되지 않습니다.
 
 ---
 
@@ -1031,10 +1047,10 @@ Backend  : http://localhost:8080
 pytest -q
 ```
 
-현재 `main` 기준:
+백엔드 테스트 결과:
 
 ```text
-78 passed
+86 passed
 ```
 
 ---
@@ -1087,7 +1103,7 @@ frontend
 graph
 ```
 
-현재 `main`의 전체 Verification Workflow는 **Passing** 상태입니다.
+최신 실행 결과는 상단 Verification 배지와 GitHub Actions에서 확인할 수 있습니다.
 
 ---
 
@@ -1137,7 +1153,7 @@ DB와 Knowledge Graph Seed는 원본 데이터를 임의로 보완하지 않고
 
 ### 3. Learning Evaluation
 
-`p < 0.003`, `Cohen's d = 0.66`은 Antutor 사용 집단의 **within-group PRE/POST improvement**입니다.
+`p ≈ 0.003`, `Cohen's d ≈ 0.66`은 **정규화 향상도를 0과 비교한 재계산 결과**이며, 원점수 PRE/POST 검정 결과가 아닙니다.
 
 비교군보다 Antutor가 우월하다는 인과적 결론을 의미하지 않습니다.
 
