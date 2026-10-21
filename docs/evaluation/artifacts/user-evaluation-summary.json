@@ -1,0 +1,62 @@
+{
+  "description": "Project user evaluation: aggregate score moments and survey response counts.",
+  "provenance": "../data-provenance.md",
+  "antutor": {
+    "pre": {
+      "n": 25,
+      "mean": 3.52,
+      "sample_sd": 7.500666637039671
+    },
+    "post": {
+      "n": 25,
+      "mean": 5.92,
+      "sample_sd": 8.26095232605378
+    },
+    "raw_change": {
+      "n": 25,
+      "mean": 2.4,
+      "sample_sd": 9.183318209303941
+    },
+    "normalized_gain": {
+      "n": 25,
+      "mean": 0.3329467096260265,
+      "sample_sd": 0.5042106349127266
+    }
+  },
+  "concept_reading": {
+    "pre": {
+      "n": 30,
+      "mean": 6.666666666666667,
+      "sample_sd": 5.201679657992004
+    },
+    "post": {
+      "n": 30,
+      "mean": 7.033333333333333,
+      "sample_sd": 6.985123765760239
+    },
+    "raw_change": {
+      "n": 30,
+      "mean": 0.36666666666666664,
+      "sample_sd": 5.833809504374765
+    }
+  },
+  "survey": {
+    "learning_helpfulness": {
+      "counts": {
+        "3": 7,
+        "4": 11,
+        "5": 14
+      },
+      "missing": 0
+    },
+    "hint_appropriateness": {
+      "counts": {
+        "2": 4,
+        "3": 2,
+        "4": 12,
+        "5": 13
+      },
+      "missing": 1
+    }
+  }
+}

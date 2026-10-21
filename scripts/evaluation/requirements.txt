@@ -1,0 +1,2 @@
+# Evaluation statistics; separate from application runtime dependencies.
+scipy==1.18.1
