@@ -1,31 +1,69 @@
 from schemas import QuizQuestionOut, QuizSubmission, QuizResultOut, QuizAnswerDetailOut
 from typing import List
 from database import supabase
-import math
+from fastapi import HTTPException
+from services.concept_normalization import normalize_concept
 
 class QuizService:
     @staticmethod
-    def get_inflation_questions() -> List[QuizQuestionOut]:
-        # '인플레이션' 관련 문제를 5개 가져옵니다.
-        # 난이도나 카테고리 필터가 필요하다면 추후 .eq() 조건을 추가할 수 있습니다.
-        res = supabase.table("questions").select("*").order("question_id").limit(5).execute()
-        questions_data = res.data
-        
-        result = []
-        for q in questions_data:
-            result.append(QuizQuestionOut(
-                id=q.get("question_id"),
-                concept="인플레이션",
-                question=q.get("question_text", ""),
-                choices=[
-                    q.get("option_1", ""),
-                    q.get("option_2", ""),
-                    q.get("option_3", ""),
-                    q.get("option_4", ""),
-                    q.get("option_5", "")
-                ]
-            ))
-        return result
+    def get_concept(concept: str) -> dict:
+        try:
+            response = (
+                supabase.table("concepts")
+                .select("concept_id, name")
+                .eq("name", normalize_concept(concept))
+                .limit(1)
+                .execute()
+            )
+            if response.data is None:
+                raise RuntimeError("Missing database response")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="개념 정보를 불러오지 못했습니다.",
+            ) from exc
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Concept not found")
+
+        return response.data[0]
+
+    @staticmethod
+    def get_questions(concept: str) -> List[QuizQuestionOut]:
+        resolved = QuizService.get_concept(concept)
+
+        try:
+            response = (
+                supabase.table("questions")
+                .select(
+                    "question_id, question_text, "
+                    "option_1, option_2, option_3, option_4, option_5"
+                )
+                .eq("concept_id", resolved["concept_id"])
+                .order("question_id")
+                .limit(5)
+                .execute()
+            )
+            if response.data is None:
+                raise RuntimeError("Missing database response")
+
+            return [
+                QuizQuestionOut(
+                    id=question["question_id"],
+                    concept=resolved["name"],
+                    question=question["question_text"],
+                    choices=[
+                        question[f"option_{index}"]
+                        for index in range(1, 6)
+                    ],
+                )
+                for question in response.data
+            ]
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="퀴즈 문항을 불러오지 못했습니다.",
+            ) from exc
 
     @staticmethod
     def _calculate_cbm_score(is_correct: bool, confidence_level: int) -> int:
@@ -50,154 +88,182 @@ class QuizService:
         return (post_score - pre_score) / (perfect_score - pre_score)
 
     @staticmethod
-    def evaluate_submission(submission: QuizSubmission) -> QuizResultOut:
-        question_ids = [ans.question_id for ans in submission.answers]
-        if not question_ids:
-            return QuizResultOut(session_id=submission.session_id, score=0, max_score=0)
+    def evaluate_submission(submission: QuizSubmission, *, concept_id) -> QuizResultOut:
+        question_ids = [answer.question_id for answer in submission.answers]
+        requested_ids = {str(question_id) for question_id in question_ids}
+        if not question_ids or len(requested_ids) != len(question_ids):
+            raise HTTPException(status_code=422, detail="유효하지 않은 퀴즈 답안입니다.")
 
-        # DB에서 제출된 문제들의 정답과 해설 가져오기
-        questions_res = supabase.table("questions").select("question_id, correct_option, commentary").in_("question_id", question_ids).execute()
-        questions_map = {q["question_id"]: {"correct_option": q["correct_option"], "commentary": q.get("commentary", "")} for q in questions_res.data}
-        
-        total_score = 0
-        max_possible_score = len(submission.answers) * 3 # 문항당 최대 3점
-        
+        try:
+            questions_res = (
+                supabase.table("questions")
+                .select("question_id, correct_option, commentary")
+                .eq("concept_id", concept_id)
+                .in_("question_id", question_ids)
+                .execute()
+            )
+            if questions_res.data is None:
+                raise RuntimeError("Missing database response")
+            questions_map = {
+                str(question["question_id"]): question
+                for question in questions_res.data
+            }
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail="퀴즈 채점 정보를 불러오지 못했습니다."
+            ) from exc
+
+        # Reject missing or cross-concept questions before either INSERT.
+        if requested_ids != set(questions_map):
+            raise HTTPException(
+                status_code=422,
+                detail="존재하지 않거나 해당 개념에 속하지 않는 문제입니다.",
+            )
+
         evaluated_answers = []
-        
-        # 제출된 답안을 순회하며 CBM 방식 채점
-        for answer_sub in submission.answers:
-            q_info = questions_map.get(answer_sub.question_id)
-            correct_option = q_info["correct_option"] if q_info else None
-            is_correct = False
-            earned_score = 0
-            
-            if answer_sub.selected_choice == 6:
-                # "I don't know" is uncertainty, never a high-confidence misconception.
-                is_correct = False
-                earned_score = 0
-            elif correct_option is not None:
-                # 선택지 번호(1~5)와 정답 번호(1~5) 비교
-                is_correct = (correct_option == answer_sub.selected_choice)
-                earned_score = QuizService._calculate_cbm_score(is_correct, answer_sub.confidence_level)
-                total_score += earned_score
-                
+        for answer in submission.answers:
+            question = questions_map[str(answer.question_id)]
+            is_correct = answer.selected_choice == question["correct_option"]
+            earned_score = (
+                0 if answer.selected_choice == 6
+                else QuizService._calculate_cbm_score(is_correct, answer.confidence_level)
+            )
             evaluated_answers.append({
-                "question_id": answer_sub.question_id,
-                "selected_option": answer_sub.selected_choice,
-                "confidence_level": answer_sub.confidence_level,
+                # Persist the database's ID representation, not the client's spelling.
+                "question_id": question["question_id"],
+                "selected_option": answer.selected_choice,
+                "confidence_level": answer.confidence_level,
                 "is_correct": is_correct,
-                "earned_score": earned_score
+                "earned_score": earned_score,
             })
-                
+
+        total_score = sum(answer["earned_score"] for answer in evaluated_answers)
+        max_possible_score = len(evaluated_answers) * 3
         session_id = submission.session_id
         user_id = submission.user_id
         quiz_type = "PRE" if submission.is_pre_test else "POST"
-        
-        attempt_id = None
+
+        # Separate HTTP writes are not atomic. A 503 can follow a committed write.
         try:
-            # 1. quiz_attempts 테이블에 기록 저장
             attempt_res = supabase.table("quiz_attempts").insert({
                 "session_id": session_id,
                 "user_id": user_id,
                 "quiz_type": quiz_type,
-                "total_score": total_score
+                "total_score": total_score,
             }).execute()
-            
-            # 새로 생성된 시도(attempt)의 ID 가져오기
-            if attempt_res.data:
-                attempt_id = attempt_res.data[0]["attempt_id"]
-        except Exception as e:
-            print(f"DB Insert Error (quiz_attempts): {e}")
-        
-        # 2. quiz_answers 테이블에 각 문항별 상세 응답 내역 저장
-        answers_insert_data = []
-        for ea in evaluated_answers:
-            answers_insert_data.append({
-                "attempt_id": attempt_id,
-                "question_id": ea["question_id"],
-                "selected_option": ea["selected_option"],
-                "confidence_level": ea["confidence_level"],
-                "is_correct": ea["is_correct"],
-                "earned_score": ea["earned_score"]
-            })
-            
-        if answers_insert_data and attempt_id is not None:
-            try:
-                supabase.table("quiz_answers").insert(answers_insert_data).execute()
-            except Exception as e:
-                print(f"DB Insert Error (quiz_answers): {e}")
-            
+            if not attempt_res.data or attempt_res.data[0].get("attempt_id") is None:
+                raise RuntimeError("Missing attempt ID")
+            attempt_id = attempt_res.data[0]["attempt_id"]
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail="퀴즈 결과 저장을 완료하지 못했습니다."
+            ) from exc
+
+        try:
+            answers_res = supabase.table("quiz_answers").insert([
+                {"attempt_id": attempt_id, **answer}
+                for answer in evaluated_answers
+            ]).execute()
+            if answers_res.data is None or len(answers_res.data) != len(evaluated_answers):
+                raise RuntimeError("Missing saved answers")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail="퀴즈 답안 저장을 완료하지 못했습니다."
+            ) from exc
+
         skill_improvement = None
         details = None
         pre_test_score_out = None
         pre_test_details_out = None
-            
-        # 3. 사후 퀴즈인 경우 사전 퀴즈 점수 조회 및 Hake's Gain 계산, 그리고 세션 테이블 업데이트
+
         if quiz_type == "POST":
-            # 사후 퀴즈인 경우에만 정답과 해설 상세 내역 제공
-            earned_scores_map = {ea["question_id"]: ea["earned_score"] for ea in evaluated_answers}
             details = [
                 QuizAnswerDetailOut(
-                    question_id=ans.question_id,
-                    correct_option=questions_map.get(ans.question_id, {}).get("correct_option", 0),
-                    commentary=questions_map.get(ans.question_id, {}).get("commentary", ""),
-                    earned_score=earned_scores_map.get(ans.question_id, 0)
+                    question_id=answer["question_id"],
+                    correct_option=questions_map[str(answer["question_id"])]["correct_option"],
+                    commentary=questions_map[str(answer["question_id"])].get("commentary", ""),
+                    earned_score=answer["earned_score"],
                 )
-                for ans in submission.answers
+                for answer in evaluated_answers
             ]
-            
-            # 동일 세션의 가장 최근 PRE 퀴즈 결과 조회
-            pre_test_res = None
-            try:
-                pre_test_res = supabase.table("quiz_attempts") \
-                    .select("total_score, attempt_id") \
-                    .eq("session_id", session_id) \
-                    .eq("quiz_type", "PRE") \
-                    .order("created_at", desc=True) \
-                    .limit(1) \
-                    .execute()
-            except Exception as e:
-                print(f"DB Query Error (quiz_attempts for PRE score): {e}")
-            
-            if pre_test_res and pre_test_res.data:
-                pre_test_score = pre_test_res.data[0].get("total_score")
-                pre_attempt_id = pre_test_res.data[0].get("attempt_id")
-                
-                pre_score_val = float(pre_test_score) if pre_test_score is not None else 0.0
-                pre_test_score_out = int(pre_test_score) if pre_test_score is not None else 0
-                skill_improvement = QuizService._calculate_hakes_gain(
-                    pre_score=pre_score_val,
-                    post_score=float(total_score),
-                    perfect_score=float(max_possible_score)
-                )
-                
-                if pre_attempt_id:
+
+            # A sessionless POST has feedback but no comparable session history.
+            if session_id is not None:
+                try:
+                    pre_res = (
+                        supabase.table("quiz_attempts")
+                        .select("total_score, attempt_id")
+                        .eq("session_id", session_id)
+                        .eq("user_id", user_id)
+                        .eq("quiz_type", "PRE")
+                        .order("created_at", desc=True)
+                        .order("attempt_id", desc=True)
+                        .limit(1)
+                        .execute()
+                    )
+                    if pre_res.data is None:
+                        raise RuntimeError("Missing PRE query response")
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=503, detail="사전 퀴즈 결과를 불러오지 못했습니다."
+                    ) from exc
+
+                if pre_res.data:
                     try:
-                        pre_answers_res = supabase.table("quiz_answers") \
-                            .select("*") \
-                            .eq("attempt_id", pre_attempt_id) \
+                        pre_attempt = pre_res.data[0]
+                        pre_answers_res = (
+                            supabase.table("quiz_answers")
+                            .select("question_id, earned_score")
+                            .eq("attempt_id", pre_attempt["attempt_id"])
                             .execute()
-                        if pre_answers_res and pre_answers_res.data:
+                        )
+                        if pre_answers_res.data is None:
+                            raise RuntimeError("Missing PRE answers response")
+                        pre_answers = pre_answers_res.data
+                        pre_ids = {str(answer["question_id"]) for answer in pre_answers}
+
+                        # Orphan attempts and different question sets are not comparable.
+                        if pre_ids == requested_ids and len(pre_answers) == len(question_ids):
+                            pre_test_score_out = int(pre_attempt["total_score"])
+                            skill_improvement = QuizService._calculate_hakes_gain(
+                                pre_score=float(pre_test_score_out),
+                                post_score=float(total_score),
+                                perfect_score=float(max_possible_score),
+                            )
+                            pre_scores = {
+                                str(answer["question_id"]): answer["earned_score"]
+                                for answer in pre_answers
+                            }
                             pre_test_details_out = [
                                 QuizAnswerDetailOut(
-                                    question_id=ans.get("question_id"),
-                                    correct_option=questions_map.get(ans.get("question_id"), {}).get("correct_option", 0),
-                                    commentary=questions_map.get(ans.get("question_id"), {}).get("commentary", ""),
-                                    earned_score=ans.get("earned_score", 0)
+                                    question_id=answer["question_id"],
+                                    correct_option=questions_map[str(answer["question_id"])]["correct_option"],
+                                    commentary=questions_map[str(answer["question_id"])].get("commentary", ""),
+                                    earned_score=pre_scores[str(answer["question_id"])],
                                 )
-                                for ans in pre_answers_res.data
+                                for answer in evaluated_answers
                             ]
-                    except Exception as e:
-                        print(f"DB Query Error (quiz_answers for PRE details): {e}")
-                
-                # sessions 테이블에 hakes_gain 수치 업데이트
+                    except Exception as exc:
+                        raise HTTPException(
+                            status_code=503, detail="사전 퀴즈 답안을 불러오지 못했습니다."
+                        ) from exc
+
                 try:
-                    supabase.table("sessions").update({
-                        "hakes_gain": skill_improvement
-                    }).eq("session_id", session_id).execute()
-                except Exception as e:
-                    print(f"DB Update Error (sessions hakes_gain): {e}")
-                
+                    updated = (
+                        supabase.table("sessions")
+                        .update({"hakes_gain": skill_improvement})
+                        .eq("session_id", session_id)
+                        .eq("user_id", user_id)
+                        .eq("concept_id", concept_id)
+                        .execute()
+                    )
+                    if not updated.data:
+                        raise RuntimeError("Session update was not confirmed")
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=503, detail="학습 향상도 저장을 완료하지 못했습니다."
+                    ) from exc
+
         return QuizResultOut(
             session_id=session_id,
             score=total_score,
@@ -205,5 +271,5 @@ class QuizService:
             skill_improvement=skill_improvement,
             details=details,
             pre_test_score=pre_test_score_out,
-            pre_test_details=pre_test_details_out
+            pre_test_details=pre_test_details_out,
         )

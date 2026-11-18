@@ -1,42 +1,26 @@
-# Historical semantic-cache benchmark
+# Historical Semantic Cache Benchmark
 
-Source: [the original chart](artifacts/semantic-cache-historical.png) and
-[`semantic_caching_test.py` at `1c5e5ba`](https://github.com/tangerineYR/antutor/blob/1c5e5ba/performance_test/semantic_caching_test.py).
-These are historical Git artifacts, not measurements of the current cache.
-The image identity is recorded in [data-provenance.md](data-provenance.md).
+출처는 [원본 차트](artifacts/semantic-cache-historical.png)와 [`1c5e5ba`의 `semantic_caching_test.py`](https://github.com/tangerineYR/antutor/blob/1c5e5ba/performance_test/semantic_caching_test.py)입니다. 과거 Git 산출물이며 상태별 캐시의 측정 결과가 아닙니다. 이미지 식별 정보는 [출처 문서](data-provenance.md)에 기록되어 있습니다.
 
-![Historical cache chart](artifacts/semantic-cache-historical.png)
+![과거 캐시 응답 시간 차트](artifacts/semantic-cache-historical.png)
 
-| Condition | Reported time |
+| 측정 조건 | 기록된 응답 시간 |
 |---|---:|
-| Cache miss / full LLM graph | 30.314 s |
-| Cache hit / semantic reuse | 4.228 s |
-| Relative reduction `(30314-4228)/30314 × 100` | 86.0526% (approximately 86.1%) |
+| 전체 LLM 그래프 실행 시나리오 | 30.314초 |
+| Semantic Cache 재사용 시나리오 | 4.228초 |
+| 상대적 시간 감소 `(30314-4228)/30314 × 100` | 86.0526% (약 86.1%) |
 
-## Measurement procedure
+## Measurement Procedure
 
-The historical script sends two sequential `POST /chat` requests with differently
-worded descriptions of inflation. They use separate users/sessions and wait
-1.5 seconds between requests. Client elapsed time is measured with `time.time()`.
-Chart labels truncate durations to integer milliseconds.
+과거 스크립트는 인플레이션을 서로 다르게 서술한 두 `POST /chat` 요청을 순차 전송합니다. 사용자·세션은 서로 다르며 요청 사이에 1.5초를 기다립니다. 클라이언트 경과 시간은 `time.time()`으로 측정하고 차트 레이블은 정수 밀리초로 절삭합니다.
 
-There is one request per condition in the script, with no repeated-run variance
-or confidence interval. The script clears selected session logs and concept cache
-entries before the requests. This cross-session reuse scenario belongs to the old
-broad cache; the current learner/session/state-scoped synthesis cache intentionally
-prevents such reuse.
+조건마다 요청은 1회이며 반복 측정의 분산이나 신뢰구간은 없습니다. 스크립트는 요청 전에 선택된 세션 로그와 개념 캐시 항목을 지웁니다. 이러한 세션 간 재사용 시나리오는 과거의 넓은 캐시 범위에 해당합니다. 학습자·세션·상태별 synthesis 캐시는 같은 방식의 재사용을 의도적으로 막습니다.
 
 ## Limits
 
-- The commit preserves the chart and procedure, but no run ID links the image to
-  an exact server commit, GPU, model revision or vLLM image digest.
-- The script prints HTTP errors but still returns a duration, and does not assert
-  `from_cache`. The image alone cannot verify request success or an actual hit.
-- No raw timing samples, response logs or concurrent-user statistics are preserved
-  with the chart. The two bars are not a multi-user load-test average.
-- The numbers do not establish current-version latency or performance of the
-  subsequent 14B deployment.
+- 해당 커밋은 차트와 절차를 보존하지만 이미지를 정확한 서버 커밋·GPU·모델 revision·vLLM 이미지 digest와 연결하는 실행 ID가 없습니다.
+- 스크립트는 HTTP 오류를 출력해도 소요 시간을 반환하며 `from_cache`를 검증하지 않습니다. 이미지만으로 요청 성공이나 실제 캐시 적중을 확인할 수 없습니다.
+- 원시 시간 표본, 응답 로그, 동시 사용자 통계는 차트와 함께 보존되어 있지 않습니다. 두 막대는 다중 사용자 부하 테스트의 평균이 아닙니다.
+- 이 수치는 상태별 캐시를 사용하는 서비스의 지연이나 이후 14B 배포의 성능을 입증하지 않습니다.
 
-The historical script deletes selected database records and is linked for
-inspection, not included as a current executable test. Current cache correctness
-is covered separately by [test_semantic_cache.py](../../tests/test_semantic_cache.py).
+과거 스크립트는 선택된 DB 기록을 삭제하므로 검토용 링크로 제공할 뿐 개발용 실행 테스트로 안내하지 않습니다. 상태별 캐시의 정확성은 별도의 [test_semantic_cache.py](../../tests/test_semantic_cache.py)에서 검사합니다.

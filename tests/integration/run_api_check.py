@@ -6,9 +6,12 @@ import time
 from pathlib import Path
 import httpx
 from dotenv import dotenv_values
+from local_test_environment import require_disposable_environment
 
 root=Path(__file__).resolve().parents[2]
 environment={**dotenv_values(root/'.env'), **os.environ}
+environment['TEST_API_URL']='http://127.0.0.1:8082'
+require_disposable_environment(environment)
 with (root/'api-integration.log').open('w') as log:
     process=subprocess.Popen([sys.executable,'-m','uvicorn','main:app','--host','127.0.0.1','--port','8082'],
                              cwd=root/'back',env=environment,stdout=log,stderr=log)
@@ -20,7 +23,15 @@ with (root/'api-integration.log').open('w') as log:
             except httpx.RequestError: pass
             time.sleep(.5)
         else: raise RuntimeError('API readiness timed out')
-        subprocess.run([sys.executable,str(root/'tests/integration/check_api.py')],env=environment,check=True)
+        for script_name in ('check_api.py', 'check_quiz.py'):
+            subprocess.run(
+                [sys.executable, str(root/'tests/integration'/script_name)],
+                env=environment, check=True,
+            )
     finally:
         process.terminate()
-        process.wait(timeout=10)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)

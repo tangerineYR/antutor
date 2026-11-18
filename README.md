@@ -78,7 +78,7 @@ Clause-level Evaluation
 | **유형** | Capstone Design · Team Project |
 | **역할** | **Team Lead · Backend · AI Orchestration** |
 | **Git 개발 기록** | 2026.03.24 – 2026.06.03 |
-| **Portfolio Refactoring** | 2026.10 |
+| **이후 개선·검증** | 2026.10 이후 |
 | **Backend** | FastAPI · WebSocket · LangGraph · asyncio |
 | **LLM** | Qwen · Ollama / OpenAI-compatible vLLM |
 | **Data** | Supabase PostgreSQL · pgvector · Neo4j |
@@ -86,14 +86,13 @@ Clause-level Evaluation
 | **Frontend** | React · Recharts |
 | **Original Team Repository** | [Antutor/antutor-repository](https://github.com/Antutor/antutor-repository) |
 
-> **Portfolio Refactoring**
+> **Project Scope & Provenance**
 >
-> 본 저장소는 팀 프로젝트 원본 Repository의 개인 Portfolio Fork입니다.  
-> 프로젝트 종료 후 Security Hardening, DB Migration, Cache Correctness, Test/CI,
-> Local DB Reproducibility, Neo4j Seed Normalization 등을 추가로 보강했습니다.
+> 이 저장소는 [Antutor 팀 프로젝트 원본](https://github.com/Antutor/antutor-repository)을 바탕으로 개인 포트폴리오 용도로 관리하는 Fork입니다.
 >
-> `supabase/migrations/`는 과거 Supabase DB의 byte-for-byte dump가 아니라,
-> **현재 Backend contract와 프로젝트 당시 DB 설계 자료를 기반으로 재구성한 fresh-database baseline**입니다.
+> 팀 프로젝트에서 개발한 Multi-Agent 경제학 학습 시스템을 기반으로 합니다. 개인 개선 범위는 인증·접근 제어, DB 마이그레이션, Semantic Cache 상태 격리, 자동화 테스트 및 로컬 실행 재현성입니다.
+>
+> `supabase/migrations/`는 백엔드 구조와 프로젝트 설계 자료를 바탕으로 구성한 신규 DB용 마이그레이션입니다.
 
 ---
 
@@ -145,7 +144,7 @@ flowchart TD
 Tavily와 Neo4j는 서로 다른 Agent context를 구성합니다.
 
 WebSocket chat path에서는 두 context를 `asyncio.gather()`로 병렬 조회하며,
-REST `/chat` path에서는 현재 순차적으로 조회합니다.
+REST `/chat` path에서는 순차적으로 조회합니다.
 
 이와 별개로 LangGraph 내부의 세 Expert Draft와 세 Rebuttal은
 각각 `asyncio.gather()`를 통해 병렬 실행합니다.
@@ -184,7 +183,7 @@ flowchart LR
 프로젝트 당시에는 **Qwen3-14B-AWQ**를 GCP Compute Engine의 **NVIDIA L4 24GB** 환경에서
 vLLM 기반으로 self-hosted serving했습니다.
 
-현재 기본 설정은 **vLLM + Qwen3-14B-AWQ**이며, Local Ollama도 선택할 수 있습니다.
+기본 추론 구성은 **vLLM + Qwen3-14B-AWQ**이며, 로컬 Ollama도 선택할 수 있습니다.
 배포 당시 모델·GPU의 출처와 연결 방법은 [GCP/vLLM 가이드](docs/deployment/gcp-vllm.md)에 정리되어 있습니다.
 
 ---
@@ -195,20 +194,19 @@ vLLM 기반으로 self-hosted serving했습니다.
 
 초기 설계에서는 다음과 같은 평가 방식을 비교했습니다.
 
-| Evaluation Method | Spearman Correlation |
+| 평가 방식 | 전문가 레이블과의 Spearman 상관계수 |
 |---|---:|
 | **LLM Judge** | **0.66** |
 | LLM Atomic | 0.61 |
 | Cosine Similarity | 0.55 |
 | NLI | 0.16 |
 
-> SemEval-2013 Beetle의 Expert Label을 이용한 프로젝트 내 비교 실험 결과
+> SemEval-2013 Beetle 전문가 레이블을 활용한 프로젝트 당시 탐색적 비교 실험에서 보고된 값입니다. 공개 자료에는 이 비교의 개별 예측값과 전체 실험 기록이 포함되어 있지 않으므로, 수치의 독립적인 재현까지 검증된 결과로 해석하지 않습니다.
 
 초기에는 `Atomic Decomposition + NLI Guardrail` 구조도 검토했지만,  
 실험 결과 Single Judge 방식이 Expert Label과 더 높은 정렬을 보여 최종 구조를 단순화했습니다.
 
-현재 구현에서는 이를 경제 도메인에 맞춰 발전시켜  
-**Academic Agent가 학생 답변을 Clause 단위로 구조화하여 평가**합니다.
+경제 도메인의 답변 평가는 **Academic Agent가 학생의 설명을 Clause 단위로 구조화하여 수행**합니다.
 
 ```text
 Student Explanation
@@ -224,8 +222,7 @@ Clause Analysis
 Structured Evaluation
 ```
 
-즉 현재 README의 Architecture는 과거 초기 NLI Prototype이 아니라  
-**최종 Qwen + LangGraph 기반 구현**을 기준으로 설명합니다.
+평가 결과는 Qwen과 LangGraph 기반의 조건부 실행 경로를 결정하는 데 사용합니다.
 
 ---
 
@@ -364,8 +361,7 @@ REQUIRES
 각 Relationship에는 단순 연결 정보뿐 아니라  
 **해당 경제학적 관계가 성립하는 이유를 설명하는 `reason` property**를 함께 저장합니다.
 
-현재 실행 코드는 **1-hop retrieval**을 사용합니다.  
-프로젝트 문서에 존재했던 Multi-hop 아이디어를 현재 구현된 기능처럼 과장하지 않습니다.
+Neo4j 조회는 개념을 기준으로 양방향 1-hop 관계와 각 관계의 설명을 가져옵니다.
 
 ---
 
@@ -373,7 +369,7 @@ REQUIRES
 
 원본 관계 데이터는 80개의 source rows로 구성되어 있었습니다.
 
-Portfolio Refactoring에서는 이를 정규화하여:
+관계 데이터는 다음 정규화 과정을 거칩니다.
 
 ```text
 80 Source Rows
@@ -387,8 +383,6 @@ Symmetric Edge Deduplication
 69 Canonical Relationships
 across 32 Concepts
 ```
-
-로 정리했습니다.
 
 `RELATED_TO`, `CONTRASTS_WITH`는 symmetric relation으로 정규화하고,
 `CAUSES`, `PART_OF`, `REQUIRES`는 제공된 방향성을 유지합니다.
@@ -413,21 +407,21 @@ neo4j/
 
 ### Historical Project Benchmark
 
-단일 semantic-equivalence 검증 시나리오에서는:
+프로젝트 당시 Semantic Cache 재사용을 의도한 단일 요청 비교에서 다음 시간이 기록되었습니다.
 
-| Scenario | Response Time |
+| 측정 조건 | 기록된 응답 시간 |
 |---|---:|
-| Full LLM Graph | **30.314 s** |
-| Semantic Cache Hit | **4.228 s** |
-| Reduction | **약 86.1%** |
+| 전체 LLM 그래프 실행 | **30.314초** |
+| Semantic Cache 재사용 시나리오 | **4.228초** |
+| 상대적 시간 감소 | **약 86.1%** |
 
-> 이 수치는 프로젝트 당시의 broad semantic cache에 대한 단일 시나리오 측정 결과입니다.  
-> 현재 Portfolio 버전의 end-to-end benchmark를 의미하지 않습니다.
-> [당시 차트·측정 조건·확인 한계](docs/evaluation/semantic-cache-historical.md)
+> 프로젝트 당시 각 조건에 요청 1회를 보낸 비교에서 기록한 시간입니다. 반복 측정과 실제 Cache Hit를 확인하는 실행 기록이 없어, 수치는 해당 실험의 관찰값으로 해석합니다. 학습자·세션·프롬프트별로 범위를 구분하는 캐시의 성능 측정과는 구분됩니다.
+>
+> 자세한 측정 조건과 검증 한계는 [Historical Semantic Cache Benchmark](docs/evaluation/semantic-cache-historical.md)에 정리했습니다.
 
-Portfolio Refactoring에서는 hit rate보다 **pedagogical correctness**를 우선하도록 Cache를 보수적으로 변경했습니다.
+Semantic Cache는 학습자·세션·프롬프트·모델 상태를 구분하여 학습 맥락에 맞는 피드백을 재사용합니다.
 
-현재 Cache namespace에는 다음 상태가 반영됩니다.
+Cache namespace에는 다음 상태가 반영됩니다.
 
 ```text
 Learner
@@ -459,7 +453,7 @@ Safe Synthesis Reuse
 **Guardrail → Expert Evaluation → Scaffolding → Session Update는 매 turn 정상 실행**되고,
 Cache Hit 시에는 최종 Retry/Synthesis 결과만 재사용합니다.
 
-현재 구현은:
+캐시 저장과 조회에는 다음 규칙을 적용합니다.
 
 - `VECTOR(384)`
 - `all-MiniLM-L6-v2`
@@ -467,8 +461,6 @@ Cache Hit 시에는 최종 Retry/Synthesis 결과만 재사용합니다.
 - atomic `hit_count`
 - namespace isolation
 - failed cache → normal generation fallback
-
-을 지원합니다.
 
 ---
 
@@ -496,7 +488,7 @@ flowchart LR
 
 ### PostgreSQL / Supabase
 
-트랜잭션 무결성과 상태 추적이 필요한 데이터를 저장합니다.
+사용자·세션·대화·퀴즈 기록을 저장하고, 외래 키와 제약조건으로 데이터 간 관계를 관리합니다.
 
 ```text
 User
@@ -595,24 +587,39 @@ Score = 0
 
 을 구분할 수 있습니다.
 
-DB와 Pydantic 양쪽에서 다음 invariant를 검증합니다.
+요청 스키마와 신규 DB의 제약조건은 선택지와 확신도가 다음 규칙을 따르도록 검증합니다.
 
 ```text
 choice == 6  ↔  confidence == 0
 ```
 
-POST Quiz에서는 PRE score와 비교하여 **Hake's Normalized Gain**도 계산합니다.
+### Concept-filtered Quiz API
+
+`GET /quiz/{concept}`는 개념명을 정규화하고 `concepts`와 `questions.concept_id`의 관계를 따라 해당 개념의 문항을 최대 5개 조회합니다. 응답에는 문제와 선택지를 제공합니다.
+
+`POST /quiz/submit`는 인증된 사용자의 답안을 받아 DB 정답을 기준으로 CBM 점수를 계산합니다. 빈 답안·중복 문항·다른 개념의 문항을 거부하고, 세션이 지정되면 사용자 소유권과 개념의 일치 여부를 확인합니다.
+
+조회·제출 형식, 오류 응답 및 저장 동작은 [개발 가이드](docs/development.md#quiz-api-contract)에 정리했습니다.
+
+### Learning Gain
+
+POST Quiz는 같은 사용자·세션의 가장 최근 PRE와 비교합니다. 두 답안의 문항 ID 집합과 개수가 일치하면 다음 식으로 학습 향상도를 계산합니다.
 
 \[
-g = \frac{Post - Pre}{Perfect - Pre}
+g_{\text{runtime}} = \frac{POST - PRE}{MAX - PRE}
 \]
+
+`MAX`는 채점 문항 수 × 3입니다. `PRE = MAX`이면 0을 반환하며, 비교할 PRE가 없거나 문항 구성이 다르면 향상도는 `null`입니다.
+
+사용자 평가의 재분석에는 점수 상승과 하락에 서로 다른 분모를 사용하는 정규화 향상도를 사용했습니다. 서비스의 런타임 계산과 평가 통계의 계산 절차는 구분하여 해석합니다.
+
+자세한 평가 공식과 통계적 한계는 [User Evaluation](docs/evaluation/user-evaluation.md)에 정리했습니다.
 
 ---
 
 ## 12. Backend Security Hardening
 
-Portfolio Refactoring에서는 기능 추가뿐 아니라
-공개 Repository에 적합하도록 Security Boundary를 재설계했습니다.
+백엔드는 인증, 세션 소유권, 요청 출처를 검증하여 데이터와 학습 세션에 대한 접근을 제어합니다.
 
 ### Authentication
 
@@ -661,7 +668,7 @@ created_at
 
 ## 13. Backend-only Database Access
 
-현재 Portfolio DB baseline은 Browser가 Supabase Table이나 RPC에 직접 접근하지 않도록 구성합니다.
+신규 DB용 마이그레이션은 브라우저의 테이블·RPC 직접 접근을 차단하고, FastAPI를 통해 데이터를 제공하도록 구성합니다.
 
 ```text
 React Browser
@@ -687,8 +694,7 @@ PostgreSQL
 
 `match_semantic_cache*()` RPC 역시 Backend `service_role`에서만 실행할 수 있도록 제한합니다.
 
-특히 Quiz 정답인 `correct_option`은 Browser가 DB에서 직접 읽지 못하고,
-FastAPI가 문제/선택지만 전달한 뒤 서버에서 채점합니다.
+퀴즈 조회에서는 문제와 선택지를, PRE 결과에서는 점수를 제공합니다. POST 결과에는 정답·해설·문항별 획득 점수를 함께 제공하여 학습자가 자신의 답안을 검토할 수 있도록 합니다. DB의 정답 데이터는 백엔드에서 조회하고 채점합니다.
 
 ---
 
@@ -696,26 +702,25 @@ FastAPI가 문제/선택지만 전달한 뒤 서버에서 채점합니다.
 
 ## Learning Effect
 
-프로젝트 사용자 평가의 점수표(n=25)에서 Antutor 사용 전후의 CBM 원점수 평균은:
+프로젝트 당시 사용자 평가 점수표의 완전한 PRE/POST 쌍 25개를 집계한 결과입니다. 원점수 변화와 정규화 향상도에 대한 검정은 구분하여 제시합니다.
 
-```text
-PRE   3.52
-      ↓
-POST  5.92
-```
-
-으로 향상되었습니다.
-
-| Metric | Result |
+| 평가 항목 | 결과 |
 |---|---:|
-| Participants | **n = 25** |
-| PRE → POST (원점수 평균) | **3.52 → 5.92** |
-| 정규화 향상도 vs 0 (일표본 t 검정) | **p ≈ 0.003** |
+| 학습 점수 표본 | **25명** |
+| PRE Quiz 원점수 평균 | **3.52점** |
+| POST Quiz 원점수 평균 | **5.92점** |
+| 평균 원점수 변화 | **+2.40점** |
+| 원점수 사전·사후 대응표본 t 검정 | **p ≈ 0.204** |
+| 정규화 향상도에 대한 일표본 t 검정 | **p ≈ 0.003** |
 | 정규화 향상도 효과크기 | **Cohen's d ≈ 0.66** |
 
-위 p와 d는 **공개 평가 집계의 정규화 향상도를 0과 비교하여 계산한 결과**입니다.
-원점수 사전·사후 대응표본 검정은 p≈0.204이며, 두 분석을 구분해야 합니다.
-[평가 집계·수식·재현 코드](docs/evaluation/user-evaluation.md)
+원점수의 평균은 상승했지만, 대응표본 t 검정에서는 통상적인 유의수준 0.05에서 통계적으로 유의한 변화가 확인되지 않았습니다.
+
+반면 정규화 향상도를 0과 비교한 일표본 검정에서는 `p ≈ 0.003`이었습니다. 두 검정은 사용하는 지표와 검정 가설이 다르므로 서로 같은 결과로 해석해서는 안 됩니다.
+
+이 수치는 프로젝트 당시 사용자 평가 집계를 재분석한 것으로, 무작위 배정된 비교 실험에서 Antutor의 인과적 우월성을 입증한 결과는 아닙니다.
+
+자세한 평가 집계와 계산 절차는 [User Evaluation](docs/evaluation/user-evaluation.md)을 참고하세요.
 
 비교군 역시 향상을 보였으므로, 이 결과를  
 “Antutor가 다른 학습 방식보다 우월하다는 인과적 증명”으로 해석하지 않습니다.
@@ -728,28 +733,25 @@ POST  5.92
 
 ## System Validation
 
-현재 Portfolio Repository의 GitHub Actions에서는 다음을 자동 검증합니다.
+GitHub Actions는 다음 네 영역을 자동으로 검사합니다.
 
 ```text
 Backend
-├── Unit Tests
-├── Security Tests
-├── Multi-Agent Routing Tests
-├── Semantic Cache Tests
-├── Quiz / Scaffolding Tests
-└── Local API Integration
+├── 인증·보안·라우팅·Scaffolding·캐시 단위 테스트
+├── 퀴즈 스키마·개념·소유권·채점·오류 처리 테스트
+├── 통합 테스트 실행 환경 제한 검사
+├── check_api.py: 기본 API·출석·보안 감사·접근 차단
+└── check_quiz.py: 개념별 GET·POST 검증·DB 저장·PRE/POST 향상도
 
 Database
-├── Migration
-├── Migration Re-run / Idempotency
-├── RLS / Privilege Check
-├── Quiz Constraints
-├── Cache Counter / TTL
-└── Cascade Integrity
+├── 신규 DB 마이그레이션 및 동일 파일 재실행
+├── 개념 Seed 재실행
+├── RLS·권한·퀴즈 제약조건
+└── 캐시 카운터·TTL·FK cascade
 
 Frontend
 ├── npm ci
-├── Jest Tests
+├── Jest: 기존 테스트·퀴즈 URL 인코딩·빈 상태와 로딩 전환
 └── Production Build
 
 Graph
@@ -758,8 +760,25 @@ Graph
 └── Repeatable Import Check
 ```
 
-**Backend 86 tests**와 로컬 API 통합 검사로 동작을 확인합니다.
-Backend / Database / Frontend / Graph CI 결과는 상단 Verification 배지에서 확인할 수 있습니다.
+단위 테스트와 임시 DB 기반 API 통합 검사로 동작을 검증합니다. 실행 결과는 상단 Verification 배지와 GitHub Actions 로그에서 확인할 수 있습니다.
+
+---
+
+# 🔧 Engineering Decisions & Validation
+
+| 검토 항목 | 설계 결정 | 검증 방법 |
+|---|---|---|
+| 조건부 Multi-Agent 실행 | Academic Agent의 오류 판단에 따라 Retry 또는 Cross Review 경로 선택 | LangGraph 라우팅 및 Retry 테스트 |
+| LLM 호출 자원 관리 | 독립적인 Agent 작업을 병렬 실행하되 Semaphore로 동시 추론 요청 제한 | 비동기 실행 코드 및 추론 호출 구조 검토 |
+| Semantic Cache 정확성 | 학습자·세션·프롬프트·모델 상태를 캐시 식별 범위에 반영 | Namespace 격리 및 캐시 동작 테스트 |
+| 데이터 접근 통제 | 신규 DB에서 브라우저 직접 접근을 차단하고 FastAPI가 제출 사용자·세션·개념을 검증 | PostgreSQL RLS·권한 검사 및 API 통합 테스트 |
+| 사용자 입력 보호 | Prompt Injection 차단과 보안 감사 기록에서 원문·매칭 문자열 제외 | Guardrail 및 보안 감사 테스트 |
+| 퀴즈 조회·평가 | 개념별 문항 조회, 빈·중복 답안과 개념 불일치 거부, 서버 CBM 채점 | 스키마·서비스 단위 테스트 및 실제 임시 DB의 GET·POST 통합 검사 |
+| 프론트 퀴즈 상태 | 개념명 URL 인코딩, 대기 상태와 빈 문항 배열 구분 | API 함수·QuizScreen 컴포넌트 테스트 |
+| 지식그래프 재현성 | 개념명·관계 방향을 정규화하고 중복 없이 Seed 재실행 | Neo4j 시드 및 멱등성 통합 검사 |
+| 자동화 검증 | Backend·Database·Frontend·Graph를 분리해 테스트 | GitHub Actions |
+
+자동화 테스트는 API·DB의 입출력과 권한, Agent 라우팅, 프론트 컴포넌트의 동작을 검사합니다. 학습 효과에 대한 실험은 [평가 문서](docs/evaluation/user-evaluation.md)에서 측정 방법과 함께 설명합니다.
 
 ---
 
@@ -790,6 +809,8 @@ Backend / Database / Frontend / Graph CI 결과는 상단 Verification 배지에
 ---
 
 # 📁 Project Structure
+
+아래는 주요 파일을 중심으로 정리한 구조입니다.
 
 ```text
 antutor/
@@ -823,6 +844,13 @@ antutor/
 │
 ├── front/
 │   ├── src/
+│   │   ├── App.js
+│   │   ├── api/
+│   │   │   ├── services.js
+│   │   │   └── services.test.js
+│   │   └── components/
+│   │       ├── QuizScreen.jsx
+│   │       └── QuizScreen.test.jsx
 │   └── public/
 │
 ├── supabase/
@@ -836,6 +864,7 @@ antutor/
 │   └── seed/
 │       ├── concepts.csv
 │       ├── concepts.sql
+│       ├── concepts.example.sql
 │       └── data-provenance.md
 │
 ├── neo4j/
@@ -849,13 +878,19 @@ antutor/
 │   ├── test_security.py
 │   ├── test_multi_agent_graph.py
 │   ├── test_retry_routing.py
+│   ├── test_scaffolding.py
 │   ├── test_semantic_cache.py
 │   ├── test_knowledge_graph.py
-│   ├── test_scaffolding.py
 │   ├── test_quiz_scoring.py
+│   ├── test_integration_environment.py
 │   ├── test_websocket_auth.py
 │   ├── test_llm_configuration.py
 │   ├── integration/
+│   │   ├── run_api_check.py
+│   │   ├── local_test_environment.py
+│   │   ├── check_api.py
+│   │   ├── check_quiz.py
+│   │   └── check_neo4j.py
 │   ├── performance/
 │   └── sql/
 │
@@ -911,33 +946,48 @@ cd antutor
 
 ## 2. Backend Environment
 
-Python 3.12 기준입니다.
+Python 3.12를 기준으로 합니다. GPU 추론 서버는 별도로 준비해야 하며, 아래 설치 명령은 백엔드 의존성만 설치합니다.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-
-python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -r requirements-dev.txt
-```
-
-Windows에서는:
+**Windows PowerShell**
 
 ```powershell
-.venv\Scripts\activate
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pip check
 ```
 
-를 사용합니다.
+**Linux / macOS**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements-dev.txt
+python -m pip check
+```
+
+Windows에서는 가상환경 활성화 없이 `.\.venv\Scripts\python.exe`를 직접 사용해 스크립트와 테스트를 실행할 수 있습니다.
+
+위 명령은 로컬 설치 예시입니다. CI는 Linux·Python 3.12·Node 22 환경에서 실행합니다. CI의 의존성 버전과 설치 명령은 [워크플로](.github/workflows/ci.yml)를 참고하세요.
 
 ---
 
 ## 3. Generate Local Secrets
 
-```bash
-python scripts/create_local_env.py
+**Windows PowerShell — 저장소 루트**
+
+```powershell
+.\.venv\Scripts\python.exe scripts/create_local_env.py
 ```
 
-이 스크립트는 local development용 `.env`를 생성합니다.
+**Linux / macOS — 저장소 루트**
+
+```bash
+.venv/bin/python scripts/create_local_env.py
+```
+
+이 스크립트는 로컬 개발용 `.env`를 새로 생성하며 기존 파일을 덮어쓰지 않습니다. 첫 Docker 실행 전에 생성해야 DB와 PostgREST의 인증 설정이 일치합니다. 생성된 서비스 토큰은 30일 후 만료되며 운영 환경에 사용하지 않습니다. 기존 `.env`나 DB 볼륨이 있으면 설정을 먼저 대조하세요. `.env`의 암호를 바꾸는 것만으로 기존 DB 볼륨의 암호가 변경되지는 않습니다.
 
 실제 Production Secret이나 API Key는 Repository에 commit하지 마세요.
 
@@ -949,7 +999,7 @@ python scripts/create_local_env.py
 docker compose --profile api up -d --wait db rest gateway
 ```
 
-Migration을 적용합니다.
+마이그레이션 스크립트는 Bash, `sha256sum`, Docker CLI가 필요합니다. Windows에서는 Docker Desktop에 연결 가능한 Git Bash 또는 WSL에서 저장소 루트를 열어 실행합니다. Linux 컨테이너에 마운트되는 `scripts/db/*.sh` 파일은 LF 줄바꿈이어야 합니다. CRLF로 체크아웃된 경우 실행 전에 LF 여부를 확인하세요.
 
 ```bash
 bash scripts/db/migrate.sh
@@ -957,18 +1007,34 @@ bash scripts/db/migrate.sh
 
 Concept Seed를 적재합니다.
 
+**Bash**
+
 ```bash
 docker compose exec -T db \
   psql -U postgres -d antutor -v ON_ERROR_STOP=1 \
   < supabase/seed/concepts.sql
 ```
 
-Optional example question:
+**Windows PowerShell — 저장소 루트**
+
+```powershell
+cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase\seed\concepts.sql"
+```
+
+선택적으로 인플레이션 예시 문항 1개를 적재하여 퀴즈 API를 실행해 볼 수 있습니다.
+
+**Bash**
 
 ```bash
 docker compose exec -T db \
   psql -U postgres -d antutor -v ON_ERROR_STOP=1 \
   < supabase/seed/concepts.example.sql
+```
+
+**Windows PowerShell — 저장소 루트**
+
+```powershell
+cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase\seed\concepts.example.sql"
 ```
 
 Schema cache를 다시 읽도록 PostgREST를 재시작합니다.
@@ -981,9 +1047,22 @@ docker compose restart rest
 
 ## 5. Optional Neo4j
 
+먼저 Neo4j를 실행하고 연결 가능한 상태가 될 때까지 기다립니다.
+
 ```bash
 docker compose up -d neo4j
-python scripts/seed_neo4j.py
+```
+
+저장소 루트에서 Seed를 실행합니다.
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\python.exe scripts/seed_neo4j.py
+```
+
+```bash
+# Linux / macOS
+.venv/bin/python scripts/seed_neo4j.py
 ```
 
 `neo4j/seed/relation_data.csv`를 기준으로
@@ -1013,9 +1092,20 @@ LLM 서버 없이도 단위 테스트와 로컬 DB/API 검사는 실행할 수 �
 
 ## 7. Start Backend
 
+저장소 루트에서 시작합니다.
+
+**Windows PowerShell**
+
+```powershell
+cd back
+..\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8080
+```
+
+**Linux / macOS**
+
 ```bash
 cd back
-uvicorn main:app --reload --port 8080
+../.venv/bin/python -m uvicorn main:app --reload --port 8080
 ```
 
 ---
@@ -1037,35 +1127,56 @@ Frontend : http://localhost:3000
 Backend  : http://localhost:8080
 ```
 
+웹 화면의 학습 미션은 인플레이션을 중심으로 구성되어 있습니다. 퀴즈 API와 `QuizScreen` 컴포넌트의 사용 방법은 [개발 가이드](docs/development.md#frontend-quiz-scope)를 참고하세요.
+
 ---
 
 # 🧪 Tests & CI
 
 ## Backend Unit Tests
 
+저장소 루트에서 실행합니다.
+
+**Windows PowerShell**
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+**Linux / macOS**
+
 ```bash
-pytest -q
+.venv/bin/python -m pytest -q
 ```
 
-백엔드 테스트 결과:
-
-```text
-86 passed
-```
+단위 테스트는 외부 의존성을 대체하여 퀴즈·보안·라우팅·캐시 동작과 통합 테스트 실행 조건을 검사합니다. 실제 DB 저장은 API 통합 검사에서 확인합니다.
 
 ---
 
 ## Database Verification
 
+먼저 Quick Start의 로컬 `.env` 생성 절차를 완료합니다. 아래 검사는 신규·폐기 가능한 로컬 DB용입니다.
+
+**Bash — 저장소 루트**
+
 ```bash
 docker compose up -d --wait db
-
 bash scripts/db/migrate.sh
-
-docker compose exec -T db \
-  psql -U postgres -d antutor -v ON_ERROR_STOP=1 \
-  < tests/sql/schema_checks.sql
+bash scripts/db/migrate.sh
+docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase/seed/concepts.sql
+docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase/seed/concepts.sql
+docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < tests/sql/schema_checks.sql
 ```
+
+Windows에서는 Docker 실행 명령을 PowerShell에서 사용할 수 있습니다. 마이그레이션 두 번 실행은 Git Bash 또는 Docker에 연결된 WSL에서 수행하고, SQL 입력은 저장소 루트의 PowerShell에서 다음처럼 전달합니다.
+
+```powershell
+cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase\seed\concepts.sql"
+cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase\seed\concepts.sql"
+cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < tests\sql\schema_checks.sql"
+```
+
+마이그레이션의 두 번째 실행은 checksum ledger에 기록된 동일 파일을 건너뛰는지 확인합니다. 개념 Seed도 두 번 실행하여 중복 적재 없이 재사용되는지 확인합니다.
 
 다음 항목을 실제 PostgreSQL에서 확인합니다.
 
@@ -1080,6 +1191,31 @@ docker compose exec -T db \
 
 ---
 
+## API & Quiz Integration
+
+Quick Start의 임시 PostgreSQL·PostgREST·gateway를 실행하고, 마이그레이션과 `concepts.sql`, `concepts.example.sql`을 적용한 뒤 PostgREST를 재시작합니다. 테스트용 API가 사용하는 `127.0.0.1:8082`는 비워 둡니다.
+
+**Windows PowerShell — 저장소 루트**
+
+```powershell
+$env:ANTUTOR_DISPOSABLE_TESTS = '1'
+.\.venv\Scripts\python.exe tests/integration/run_api_check.py
+```
+
+**Bash — 저장소 루트**
+
+```bash
+ANTUTOR_DISPOSABLE_TESTS=1 .venv/bin/python tests/integration/run_api_check.py
+```
+
+실행기는 로컬 API를 시작해 `check_api.py`와 `check_quiz.py`를 순서대로 실행한 뒤 API 프로세스를 종료합니다. 합성 데이터를 DB에 기록하므로 폐기 가능한 로컬 환경에서 실행합니다. 실행 후 데이터와 볼륨은 [개발 가이드](docs/development.md#api-and-quiz-integration-checks)에 따라 정리합니다.
+
+루트 `.env`와 프로세스 환경변수에는 해당 임시 DB의 `SUPABASE_URL`·`SUPABASE_KEY`를 설정합니다. 프로세스 환경변수가 우선하며, 실행기는 API 주소를 `http://127.0.0.1:8082`로 지정합니다.
+
+퀴즈 통합 검사는 개념별 조회, 빈·중복 답안 및 다른 개념 문항 거부, 세션 소유권, 서버 채점 결과의 저장과 PRE/POST 향상도를 확인합니다. DB 장애 시 오류 반환은 단위 테스트에서 검사합니다.
+
+---
+
 ## Frontend
 
 ```bash
@@ -1089,6 +1225,8 @@ npm ci
 npm test -- --watchAll=false --runInBand
 npm run build
 ```
+
+프론트 테스트는 API 요청을 mock으로 대체하여 개념명 URL 인코딩과 `QuizScreen`의 빈 결과·로딩 전환·한국어/영어 안내·문항 표시를 검사합니다.
 
 ---
 
@@ -1103,7 +1241,9 @@ frontend
 graph
 ```
 
-최신 실행 결과는 상단 Verification 배지와 GitHub Actions에서 확인할 수 있습니다.
+`backend` job은 `ANTUTOR_DISPOSABLE_TESTS=1`을 설정하고 임시 DB·HTTP gateway에서 API·퀴즈 통합 검사를 실행합니다. `frontend` job은 `CI=true`로 테스트와 빌드를 수행합니다. DB와 Graph 검사는 별도 job에서 실행됩니다. Docker를 사용하는 job은 종료 단계에서 해당 CI 환경의 임시 컨테이너와 볼륨을 정리합니다.
+
+실행 결과는 상단 Verification 배지와 각 job의 GitHub Actions 로그에서 확인할 수 있습니다.
 
 ---
 
@@ -1139,17 +1279,13 @@ DB와 Knowledge Graph Seed는 원본 데이터를 임의로 보완하지 않고
 
 ### 1. Knowledge Graph
 
-현재 Runtime retrieval은 **1-hop**입니다.
-
-프로젝트 문서에서 검토했던 Multi-hop Graph Traversal은
-현재 실행 코드의 기능으로 주장하지 않습니다.
+지식그래프는 선택한 개념의 양방향 1-hop 관계를 조회하여 Macro Agent의 문맥으로 제공합니다.
 
 ### 2. Semantic Cache Benchmark
 
 `30.314s → 4.228s` 결과는 **프로젝트 당시의 단일 broad-cache 실험 결과**입니다.
 
-현재 Portfolio Cache는 learner/session/prompt/model state까지 namespace에 포함하는
-더 보수적인 구조이므로 동일 수치를 현재 구현의 성능이라고 해석할 수 없습니다.
+상태별 namespace를 사용하는 캐시의 설계와 과거 측정의 조건은 [캐시 평가 문서](docs/evaluation/semantic-cache-historical.md)에 정리했습니다.
 
 ### 3. Learning Evaluation
 
@@ -1161,15 +1297,12 @@ DB와 Knowledge Graph Seed는 원본 데이터를 임의로 보완하지 않고
 
 Repository의 Concept Seed는 원본 자료의 누락도 그대로 보존합니다.
 
-현재 제공된 30개 Concept 중 일부는 definition 또는 dictionary content가 불완전하므로,
+제공된 30개 Concept 중 일부는 definition 또는 dictionary content가 불완전하므로,
 실제 평가용 학습 콘텐츠로 사용할 경우 별도의 domain curation이 필요합니다.
 
 ### 5. Supabase Migration
 
-`supabase/migrations/`는 과거 Production Supabase를 그대로 export한 dump가 아니라
-**현재 Backend contract를 재현하기 위해 복원한 fresh-database baseline**입니다.
-
-기존 Production DB에 그대로 적용하기보다 새 DB 또는 migration upgrade 검토 후 사용하는 것을 권장합니다.
+`supabase/migrations/`는 백엔드의 테이블·권한·제약조건을 구성하는 신규 DB용 기준 스키마입니다. 기존 DB에 적용할 때는 스키마와 데이터를 대조하여 환경에 맞는 업그레이드 절차를 준비합니다. [DB 구성 및 적용 방법](docs/development.md#database-baseline)
 
 ### 6. LLM Output
 
@@ -1180,29 +1313,22 @@ LLM의 factual correctness를 절대적으로 보장하지 않습니다.
 
 ## 📄 License & Usage
 
-This repository does not currently grant a separate open-source license.
+이 저장소에는 별도의 오픈소스 라이선스가 부여되어 있지 않습니다.
 
-Antutor was originally developed as a team capstone project, and this repository
-is a personal portfolio fork of the original team repository. The portfolio
-version includes additional refactoring and engineering work, but the repository
-also contains work originating from the team project.
+Antutor는 팀 캡스톤 프로젝트로 개발됐으며, 이 저장소는 원본 팀 프로젝트를 기반으로 한 개인 포트폴리오 Fork입니다. 이후 추가적인 코드 개선과 기술 검증 작업이 반영되어 있지만, 팀 프로젝트에서 비롯된 공동 작업물도 포함되어 있습니다.
 
-Accordingly, no permission to use, modify, redistribute, or sublicense the
-repository contents is granted beyond rights provided by GitHub's Terms of Service
-or applicable law.
+따라서 GitHub 이용약관 및 관련 법률에서 허용하는 범위를 제외하고, 저장소 콘텐츠의 사용·수정·재배포·재라이선스 권한을 별도로 부여하지 않습니다.
 
-Third-party libraries, APIs, models, datasets, and other external resources remain
-subject to their respective licenses and terms of use.
+사용된 외부 라이브러리, API, AI 모델 및 데이터셋 등은 각각의 라이선스와 이용약관을 따릅니다.
 
 ---
 
 <div align="center">
 
-### Three perspectives. One adaptive tutor.
+**세 가지 관점의 검증, 학습 상태에 맞춰 달라지는 피드백**
 
 **Antutor**
 
-학생에게 답을 대신 주는 AI가 아니라,  
-**학생의 설명을 듣고 다시 생각하게 만드는 AI Tutor를 설계했습니다.**
+_정답을 대신 제시하기보다, 학습자가 자신의 설명을 검증하고 스스로 다시 생각하도록 돕는 AI 튜터를 설계했습니다._
 
 </div>

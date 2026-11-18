@@ -29,13 +29,12 @@ async def get_attendance(current_user: dict = Depends(get_current_user)):
         all_attendance_response = supabase.table("user_attendance").select("attendance_date").eq("user_id", user_id).order("attendance_date", desc=True).execute()
         if all_attendance_response.data:
             all_dates = set([row["attendance_date"] for row in all_attendance_response.data])
-    except Exception as e:
-        print(f"DB Query Error (user_attendance GET): {e}")
-        # DB 에러 시에도 사용자가 낙담하지 않도록 최소한 오늘의 출석 기록은 반환
-        return {
-            "attended_dates": [today.isoformat()],
-            "streak": 1
-        }
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="출석 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요."
+        )
+
     
     streak = 0
     current_date = today
@@ -74,7 +73,9 @@ async def mark_attendance(current_user: dict = Depends(get_current_user)):
         }
         supabase.table("user_attendance").insert(new_record).execute()
         return {"message": "Attendance marked successfully.", "attended_date": today}
-    except Exception as e:
-        print(f"DB Insert Error (user_attendance POST): {e}")
-        # DB 에러가 나더라도 사용자는 출석 완료된 것처럼 보이도록(가짜 성공 반환)
-        return {"message": "Attendance marked (fallback).", "attended_date": today}
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="출석 기록을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."
+        )
+

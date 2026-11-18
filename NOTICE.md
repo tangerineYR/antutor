@@ -1,13 +1,9 @@
 # Notice
 
-Antutor originated as a team capstone project.
+Antutor는 팀 캡스톤 프로젝트에서 시작되었습니다.
 
-This repository is a personal portfolio fork of the original team repository and
-contains additional portfolio-oriented engineering work, including security
-hardening, database migrations, reproducible local infrastructure, automated tests,
-CI, cache correctness improvements, and knowledge-graph seed normalization.
+이 저장소는 [원본 팀 저장소](https://github.com/Antutor/antutor-repository)를 기반으로 관리하는 개인 포트폴리오 Fork입니다. 팀 공동 작업물에 더해 인증·접근 제어, DB 마이그레이션, 로컬 실행 환경 재현, 자동화 테스트와 CI, 캐시 정확성 개선, 지식그래프 Seed 정규화 등의 후속 개선 작업이 포함되어 있습니다.
 
-No separate open-source license is granted by this repository.
+이 저장소에는 별도의 오픈소스 라이선스가 부여되어 있지 않습니다.
 
-Third-party libraries, models, APIs, datasets, and other external resources are
-governed by their respective licenses and terms of use.
+외부 라이브러리, 모델, API, 데이터셋 및 기타 외부 자원은 각각의 라이선스와 이용약관을 따릅니다.

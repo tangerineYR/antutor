@@ -1,77 +1,68 @@
-# User evaluation
+# User Evaluation
 
-Source: the repository's [evaluation summary](artifacts/user-evaluation-summary.json).
-[Data provenance](data-provenance.md) defines the aggregation and cohort limits.
-No external workbook is required to reproduce the calculations below.
+출처는 저장소의 [평가 집계](artifacts/user-evaluation-summary.json)입니다. 집계 방식과 표본 범위의 한계는 [데이터 출처](data-provenance.md)에 정리되어 있습니다. 아래 집계 기반 계산을 재현하는 데 외부 통합문서는 필요하지 않습니다.
 
-## Learning scores
+## Learning Scores
 
-The Antutor score cohort contains 25 complete PRE/POST pairs. The two score means
-are arithmetic means, not medians. Raw score changes and normalized gains are
-separate measures.
+Antutor 점수 표본에는 완전한 PRE/POST 쌍 25개가 포함됩니다. 두 점수 평균은 중앙값이 아닌 산술평균입니다. 원점수 변화와 정규화 향상도는 서로 다른 지표입니다.
 
-| Measure | Result |
+| 평가 항목 | 결과 |
 |---|---:|
-| PRE mean (sample SD) | 3.52 (7.500667) |
-| POST mean (sample SD) | 5.92 (8.260952) |
-| Mean raw change | +2.40 |
-| Paired raw-score t test | t(24)=1.306717, two-sided p=0.203692 |
-| Raw-change Cohen's dz | 0.261343 |
-| Mean normalized gain (sample SD) | 0.332947 (0.504211) |
-| One-sample normalized-gain t test against zero | t(24)=3.301663, two-sided p=0.002999702 |
-| Normalized-gain one-sample Cohen's d | 0.660333 |
+| PRE 평균(표본 표준편차) | 3.52 (7.500667) |
+| POST 평균(표본 표준편차) | 5.92 (8.260952) |
+| 평균 원점수 변화 | +2.40 |
+| 원점수 대응표본 t 검정 | t(24)=1.306717, 양측 p=0.203692 |
+| 원점수 변화의 Cohen's dz | 0.261343 |
+| 정규화 향상도 평균(표본 표준편차) | 0.332947 (0.504211) |
+| 정규화 향상도를 0과 비교한 일표본 t 검정 | t(24)=3.301663, 양측 p=0.002999702 |
+| 정규화 향상도의 일표본 Cohen's d | 0.660333 |
 
-Normalized gain uses the project score range −30..15:
+과거 평가의 정규화 향상도는 프로젝트 점수 범위 −30..15를 사용합니다.
 
 ```text
 POST > PRE: g = (POST - PRE) / (15 - PRE)
 POST ≤ PRE: g = (POST - PRE) / (PRE + 30)
 ```
 
-The 25 recorded gains agree with this formula; none has a zero denominator.
-The test uses `d = mean(g) / sample_sd(g)` and `t = d × sqrt(n)`.
-It reproduces p≈0.003 and d≈0.66 as a test of normalized gain against zero.
-The original test specification is not preserved, so this reconstruction does
-not establish which procedure was used in the original analysis.
+출처 기록의 25개 향상도는 이 공식과 일치하며 분모가 0인 사례는 없습니다. 공개 JSON에는 개별 행이 아닌 집계 통계가 있으므로, 공개 자료만으로 개인별 공식 일치 여부를 다시 감사할 수 있는 것은 아닙니다. 재계산은 `d = mean(g) / sample_sd(g)`, `t = d × sqrt(n)`을 사용합니다. 정규화 향상도를 0과 비교하는 검정으로 p≈0.003과 d≈0.66을 재현합니다. 원래 검정 명세는 보존되어 있지 않으므로 이 재구성이 당시 어떤 검정 절차를 사용했는지 확정하지는 않습니다.
 
-Those values must not be presented as the raw PRE/POST paired-test result.
-The paired raw-score test gives p≈0.204, which is not significant at 0.05.
-The gain formula uses different denominators for improvement and decline;
-the two tests answer different questions.
+이 값을 원점수 PRE/POST 대응표본 검정 결과로 제시하면 안 됩니다. 원점수 대응표본 검정은 p≈0.204로 유의수준 0.05에서 유의하지 않습니다. 향상도 공식은 상승·하락에 서로 다른 분모를 사용하며 두 검정은 서로 다른 질문에 답합니다.
 
-## Usability survey
+백엔드의 런타임 계산식은 `(POST - PRE) / (MAX - PRE)`이고 `PRE = MAX`이면 0을 반환합니다. 런타임의 `MAX`는 제출 문항 수 × 3이며, 같은 사용자·세션의 최신 PRE와 제출 문항 집합·개수가 같을 때만 비교합니다. 이 문서의 과거 평가 공식과 서비스의 계산 절차는 구분하여 해석합니다.
 
-The score cohort and survey respondents are not assumed to be the same sample.
-All nonmissing ratings are included separately for each question.
+## Usability Survey
 
-| Question | Valid n | Mean / 5 | Ratings ≥4 | Missing |
+점수 표본과 설문 응답자를 같은 표본으로 가정하지 않습니다. 각 문항의 결측이 아닌 응답을 별도로 집계합니다.
+
+| 문항 | 유효 n | 평균 / 5 | 4점 이상 | 결측 |
 |---|---:|---:|---:|---:|
-| Helpfulness for understanding economic concepts | 32 | 4.21875 → **4.22** | 25/32 = **78.125%** | 0 |
-| Appropriateness of scaffolding hints | 31 | 4.096774 → **4.10** | 25/31 = **80.645%** | 1 |
+| 경제 개념 이해에 대한 학습 도움도 | 32 | 4.21875 → **4.22** | 25/32 = **78.125%** | 0 |
+| Scaffolding 힌트의 적절성 | 31 | 4.096774 → **4.10** | 25/31 = **80.645%** | 1 |
 
-Helpfulness ratings are 3:7, 4:11 and 5:14. Hint ratings are 2:4, 3:2,
-4:12 and 5:13. Whether every hint respondent actually received a hint is unknown.
-The complete helpfulness distribution yields 4.22, not 4.19. No undocumented
-response exclusions or pooling of the two questions are applied.
+학습 도움도 분포는 3점 7명, 4점 11명, 5점 14명입니다. 힌트 분포는 2점 4명, 3점 2명, 4점 12명, 5점 13명입니다. 힌트 응답자 전원이 실제로 힌트를 받았는지는 알 수 없습니다. 학습 도움도 전체 분포의 평균은 4.19가 아닌 4.22입니다. 근거 없는 응답 제외나 서로 다른 두 문항의 합산은 적용하지 않았습니다.
 
-## Interpretation limits
+## Interpretation Limits
 
-The concept-reading score cohort has 30 records with mean scores
-6.666667 → 7.033333. Random assignment, exclusion criteria and participant linkage
-are not established. Neither within-group gains nor the reconstructed tests
-establish Antutor's causal superiority or a significant between-group difference.
-These are historical evaluation scores, not responses re-scored by the current
-application.
+개념 읽기 집단의 점수 표본은 30개이며 평균은 6.666667 → 7.033333입니다. 무작위 배정, 제외 기준, 참여자 간 연결은 확인되어 있지 않습니다. 집단 내 향상이나 재구성한 검정만으로 Antutor의 인과적 우월성 또는 유의한 집단 간 차이를 입증하지 않습니다.
+
+이 자료는 과거 평가 점수이며 애플리케이션으로 개별 답안을 다시 채점한 결과가 아닙니다.
 
 ## Reproduction
 
-From the repository root:
+저장소 루트에서 별도 평가 의존성을 설치하고 실행합니다.
 
-```sh
-python -m pip install -r scripts/evaluation/requirements.txt
-python scripts/evaluation/user_evaluation.py
+**Windows PowerShell**
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r scripts/evaluation/requirements.txt
+.\.venv\Scripts\python.exe scripts/evaluation/user_evaluation.py
 ```
 
-The script reads the public aggregate JSON and prints the two tests and survey
-statistics. `--summary path/to/summary.json` selects another dataset with the same
-schema. The script does not alter the dataset or require private source files.
+**Linux / macOS**
+
+```sh
+.venv/bin/python -m pip install -r scripts/evaluation/requirements.txt
+.venv/bin/python scripts/evaluation/user_evaluation.py
+```
+
+스크립트는 공개 집계 JSON을 읽어 두 검정과 설문 통계를 출력합니다. `--summary path/to/summary.json`으로 같은 스키마의 다른 데이터셋을 선택할 수 있습니다. 데이터셋을 변경하지 않으며 비공개 원본 파일이 필요하지 않습니다. 재현 범위는 집계로부터의 계산이며, 원자료의 채점과 표본 선정을 독립적으로 검증하는 작업은 아닙니다.

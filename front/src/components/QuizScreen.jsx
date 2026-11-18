@@ -113,7 +113,30 @@ const QuizScreen = ({ questions, sessionId, concept, userId, language, isPostTes
         }
     };
 
-    if (!displayQuestions || displayQuestions.length === 0 || !isMinLoadingDone) {
+    // null/undefined means loading; an empty array is a completed, empty lookup.
+    if (Array.isArray(questions) && questions.length === 0) {
+        return (
+            <section
+                className="quiz-container glass-panel fade-in"
+                style={{ justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}
+            >
+                <div role="status" style={{ textAlign: 'center', color: 'var(--color-deep-navy)' }}>
+                    <h2>
+                        {language === 'ko'
+                            ? '등록된 퀴즈가 없습니다'
+                            : 'No quiz is available for this concept.'}
+                    </h2>
+                    <p>
+                        {language === 'ko'
+                            ? '다른 개념을 선택해 주세요.'
+                            : 'Please choose another concept.'}
+                    </p>
+                </div>
+            </section>
+        );
+    }
+
+    if (!Array.isArray(questions) || !isMinLoadingDone) {
         return (
             <section className="quiz-container glass-panel fade-in" style={{ justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
                 <div style={{ textAlign: 'center', color: 'var(--color-deep-navy)' }}>

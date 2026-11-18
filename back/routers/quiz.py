@@ -15,7 +15,7 @@ def get_quiz_questions(concept: str):
     """
     특정 개념(예: '인플레이션')에 대한 퀴즈 문항들을 반환합니다.
     """
-    return QuizService.get_inflation_questions()
+    return QuizService.get_questions(concept)
 
 @router.post("/submit", response_model=QuizResultOut)
 def submit_quiz(submission: QuizSubmission, current_user: dict = Depends(get_current_user)):
@@ -24,12 +24,33 @@ def submit_quiz(submission: QuizSubmission, current_user: dict = Depends(get_cur
     사후 테스트인 경우, 사전 테스트 점수와 비교하여 Hake's Gain(실력 향상도)를 함께 반환합니다.
     """
     # 프론트엔드에서 넘어온 userName (TestUser) 대신, 토큰에서 추출한 진짜 UUID를 매핑
-    real_user_id = current_user.get("user_id", current_user.get("id"))
+    real_user_id = current_user.get("user_id") or current_user.get("id")
+    if not real_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
     submission.user_id = real_user_id
+    resolved = QuizService.get_concept(submission.concept)
     if submission.session_id is not None:
-        owned = supabase.table("sessions").select("session_id").eq(
-            "session_id", submission.session_id).eq("user_id", real_user_id).execute()
+        try:
+            owned = (
+                supabase.table("sessions")
+                .select("session_id")
+                .eq("session_id", submission.session_id)
+                .eq("user_id", real_user_id)
+                .eq("concept_id", resolved["concept_id"])
+                .execute()
+            )
+            if owned.data is None:
+                raise RuntimeError("Missing database response")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="학습 세션을 확인하지 못했습니다.",
+            ) from exc
+
         if not owned.data:
             raise HTTPException(status_code=404, detail="Session not found")
     
-    return QuizService.evaluate_submission(submission)
+    return QuizService.evaluate_submission(
+        submission,
+        concept_id=resolved["concept_id"],
+    )

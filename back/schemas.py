@@ -109,12 +109,33 @@ class QuizAnswerSubmit(BaseModel):
             raise ValueError("Choice 6 requires confidence 0; choices 1–5 require confidence 1–3")
         return self
 
+    @field_validator("question_id")
+    @classmethod
+    def validate_question_id(cls, value):
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            raise ValueError("question_id must be an integer or string")
+
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("question_id must not be empty")
+
+        return value
+
 class QuizSubmission(BaseModel):
     session_id: Optional[str] = None
     user_id: str
     concept: str
     is_pre_test: bool
-    answers: List[QuizAnswerSubmit]
+    answers: List[QuizAnswerSubmit] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def reject_duplicate_questions(self):
+        question_ids = [
+            str(answer.question_id).strip()
+            for answer in self.answers
+        ]
+        if len(question_ids) != len(set(question_ids)):
+            raise ValueError("Duplicate question_id is not allowed")
+        return self
 
 class QuizAnswerDetailOut(BaseModel):
     question_id: Any
