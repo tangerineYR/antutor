@@ -1,26 +1,23 @@
 # Historical Semantic Cache Benchmark
 
-출처는 [원본 차트](artifacts/semantic-cache-historical.png)와 [`1c5e5ba`의 `semantic_caching_test.py`](https://github.com/tangerineYR/antutor/blob/1c5e5ba/performance_test/semantic_caching_test.py)입니다. 과거 Git 산출물이며 상태별 캐시의 측정 결과가 아닙니다. 이미지 식별 정보는 [출처 문서](data-provenance.md)에 기록되어 있습니다.
+프로젝트 당시 서로 다르게 표현한 인플레이션 답변 두 건을 순서대로 요청해 응답 시간을 비교했습니다. [원본 차트](artifacts/semantic-cache-historical.png)와 [당시 측정 코드](https://github.com/tangerineYR/antutor/blob/1c5e5ba192f80661aac45d65b16073a3b7761718/performance_test/semantic_caching_test.py)에 측정 조건이 남아 있습니다.
 
-![과거 캐시 응답 시간 차트](artifacts/semantic-cache-historical.png)
+| 요청 조건 | 차트의 응답 시간 |
+| --- | ---: |
+| 전체 LLM 그래프 실행을 의도한 요청 | 30.314초 |
+| 유사 답변 캐시 재사용을 의도한 요청 | 4.228초 |
+| 첫 요청 대비 시간 차이 | 약 86.1% 감소 |
 
-| 측정 조건 | 기록된 응답 시간 |
-|---|---:|
-| 전체 LLM 그래프 실행 시나리오 | 30.314초 |
-| Semantic Cache 재사용 시나리오 | 4.228초 |
-| 상대적 시간 감소 `(30314-4228)/30314 × 100` | 86.0526% (약 86.1%) |
+![당시 첫 번째 요청 30,314ms와 두 번째 요청 4,228ms를 표시한 차트](artifacts/semantic-cache-historical.png)
 
 ## Measurement Procedure
 
-과거 스크립트는 인플레이션을 서로 다르게 서술한 두 `POST /chat` 요청을 순차 전송합니다. 사용자·세션은 서로 다르며 요청 사이에 1.5초를 기다립니다. 클라이언트 경과 시간은 `time.time()`으로 측정하고 차트 레이블은 정수 밀리초로 절삭합니다.
-
-조건마다 요청은 1회이며 반복 측정의 분산이나 신뢰구간은 없습니다. 스크립트는 요청 전에 선택된 세션 로그와 개념 캐시 항목을 지웁니다. 이러한 세션 간 재사용 시나리오는 과거의 넓은 캐시 범위에 해당합니다. 학습자·세션·상태별 synthesis 캐시는 같은 방식의 재사용을 의도적으로 막습니다.
+당시 스크립트는 서로 다른 사용자·세션의 `POST /chat` 요청을 각각 한 번 보내고, 사이에 1.5초를 기다립니다. 클라이언트에서 `time.time()`으로 경과 시간을 측정해 정수 밀리초로 표시합니다.
 
 ## Limits
 
-- 해당 커밋은 차트와 절차를 보존하지만 이미지를 정확한 서버 커밋·GPU·모델 revision·vLLM 이미지 digest와 연결하는 실행 ID가 없습니다.
-- 스크립트는 HTTP 오류를 출력해도 소요 시간을 반환하며 `from_cache`를 검증하지 않습니다. 이미지만으로 요청 성공이나 실제 캐시 적중을 확인할 수 없습니다.
-- 원시 시간 표본, 응답 로그, 동시 사용자 통계는 차트와 함께 보존되어 있지 않습니다. 두 막대는 다중 사용자 부하 테스트의 평균이 아닙니다.
-- 이 수치는 상태별 캐시를 사용하는 서비스의 지연이나 이후 14B 배포의 성능을 입증하지 않습니다.
+- HTTP 오류가 발생해도 스크립트는 경과 시간을 반환합니다. 성공 응답의 `from_cache` 값은 출력하며 차트 저장 조건으로 검사하지 않습니다. 저장된 차트에는 응답 성공 여부와 캐시 적중 로그가 남아 있지 않습니다.
+- 조건당 요청이 한 번이므로 반복 측정의 분산, 신뢰구간과 동시 사용자 지연은 계산할 수 없습니다. 정확한 서버 커밋·GPU·모델 revision·이미지 digest를 함께 기록한 실행 명세도 없습니다.
+- 현재 구현의 캐시는 학습자·세션·입력·프롬프트 상태로 조회 범위를 지정합니다. 위 두 요청의 시간은 당시 비교값입니다. 현재 캐시의 상태 격리 테스트는 [캐시 테스트](../../tests/test_semantic_cache.py)에 있습니다.
 
-과거 스크립트는 선택된 DB 기록을 삭제하므로 검토용 링크로 제공할 뿐 개발용 실행 테스트로 안내하지 않습니다. 상태별 캐시의 정확성은 별도의 [test_semantic_cache.py](../../tests/test_semantic_cache.py)에서 검사합니다.
+당시 스크립트는 측정 전에 세션 로그와 개념 캐시 일부를 삭제합니다. 개발 검사에는 [자동화 테스트](../development.md#tests-and-runtime-data)를 사용합니다. [차트 출처와 체크섬](data-provenance.md#historical-cache-chart)

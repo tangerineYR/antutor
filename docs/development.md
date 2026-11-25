@@ -1,56 +1,31 @@
 # Development and Verification
 
-실행 가능한 백엔드는 FastAPI·LangGraph와 Supabase를 사용합니다. 기본 추론 설정은 vLLM/OpenAI 호환 API와 `Qwen/Qwen3-14B-AWQ`이며, Ollama·Neo4j·Tavily·Azure Translator는 구성에 따라 사용합니다. 추론 서버 연결과 Ollama 선택은 [GCP/vLLM 설정](deployment/gcp-vllm.md)을 참고하세요. 단위 테스트와 비-LLM API 통합 검사에는 실제 모델 서버가 필요하지 않습니다.
+Antutor의 로컬 구성은 FastAPI, React, PostgreSQL과 PostgREST로 이루어집니다. 실제 AI 채팅은 별도의 [추론 서버](deployment/gcp-vllm.md)에 연결합니다. Neo4j·Tavily·Azure Translator는 해당 기능에 필요한 설정을 추가할 때 사용합니다.
 
 ## Development Environment
 
-CI는 Python 3.12와 Node 22를 사용합니다. 다음 명령은 저장소 루트에서 실행하는 일반 로컬 설치 예시입니다.
+CI는 Python 3.12와 Node.js 22를 사용합니다. 로컬 DB를 구성하려면 Docker Compose가 필요합니다. 명령은 저장소 루트에서 실행합니다.
 
 **Windows PowerShell**
 
-```powershell
-python -m venv .venv
+~~~powershell
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pip check
-```
+~~~
 
 **Linux / macOS**
 
-```sh
-python3 -m venv .venv
+~~~sh
+python3.12 -m venv .venv
+# 아래 예시는 Linux CPU 환경 기준입니다.
 .venv/bin/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pip check
-```
+~~~
 
-Linux CI는 CPU용 `torch==2.14.1+cpu`를 명시적으로 설치합니다. CI 재현에 필요한 의존성 버전과 명령은 [워크플로](../.github/workflows/ci.yml)를 참고하세요. GPU 모델 서버는 별도로 설치하고 실행합니다.
-
-로컬 DB와 비밀값은 아래 Database 절에서 준비합니다. 준비가 끝난 뒤 저장소 루트에서 백엔드를 시작합니다.
-
-```powershell
-# Windows PowerShell
-cd back
-..\.venv\Scripts\python.exe -m uvicorn main:app --port 8080
-```
-
-```sh
-# Linux / macOS
-cd back
-../.venv/bin/python -m uvicorn main:app --port 8080
-```
-
-프론트는 별도 터미널의 저장소 루트에서 실행합니다.
-
-```sh
-cd front
-npm ci
-npm test -- --watchAll=false --runInBand
-npm run build
-npm start
-```
-
-백엔드 8080 포트는 프론트 개발 환경의 API 주소와 맞춰져 있습니다. 운영 API 주소는 `front/.env.production`을 참고해 배포 환경에 맞게 설정합니다.
+macOS에서는 [PyTorch 설치 안내](https://docs.pytorch.org/get-started/locally/)의 OS·하드웨어에 맞는 설치 명령을 사용합니다. 고정된 CI 설치 설정은 [워크플로](../.github/workflows/ci.yml)에서 확인할 수 있습니다.
 
 ## Authentication and Security
 
@@ -68,7 +43,7 @@ npm start
 
 ## Database Baseline
 
-`supabase/migrations/`의 다섯 파일은 애플리케이션 코드와 설계 자료를 바탕으로 구성한 **신규 DB용 기준 스키마**입니다. 사용자는 UUID, 세션·개념·문항·퀴즈 시도는 bigint ID를 사용합니다. 출석 테이블명은 코드와 같은 `user_attendance`입니다.
+`supabase/migrations/`는 **신규 DB용 기준 스키마**를 정의합니다. 사용자는 UUID, 세션·개념·문항·퀴즈 시도는 bigint ID를 사용합니다. 출석 테이블명은 코드와 같은 `user_attendance`입니다.
 
 기준 스키마에는 사용자·개념에서 세션·대화 기록으로 이어지는 삭제 관계, 퀴즈 평가와 `hakes_gain`, 일일 출석의 유일성 제약 등이 포함됩니다. 기존 DB는 타입·제약조건·권한·컬럼을 대조하고 백업한 뒤 배포별 업그레이드를 준비해야 합니다. 기존 테이블 위에 기준 마이그레이션을 그대로 실행하지 않습니다. 기존 `security_logs`는 `user_id`, `threat_type`, `transport`, `created_at`과 정합성을 확인해야 합니다.
 
@@ -76,76 +51,114 @@ npm start
 
 Supabase에는 `anon`, `authenticated`, `service_role` 역할이 제공됩니다. 로컬 Docker 초기화는 이에 대응하는 역할을 준비합니다. 기준 마이그레이션은 애플리케이션 테이블에 RLS를 활성화하고 브라우저용 정책과 직접 접근 권한을 제공하지 않습니다. 일반 애플리케이션 접근은 FastAPI의 **service-role 키**를 사용하며 anon 키만으로는 동작하지 않습니다. 애플리케이션 자체 JWT는 Supabase Auth JWT와 다릅니다. 사용자·세션 소유권 검증 책임은 백엔드에 있습니다.
 
-PUBLIC/anon/authenticated는 문제 테이블을 읽거나 두 캐시 RPC를 실행할 수 없습니다. 마이그레이션 역할이 이후 생성하는 객체의 기본 권한도 제한합니다. DB 관리자 권한까지 없다는 뜻은 아닙니다.
+`PUBLIC`, `anon`, `authenticated`에는 문제 테이블의 읽기 권한과 두 캐시 RPC의 실행 권한을 부여하지 않습니다. 마이그레이션 역할이 이후 만드는 객체에도 기본 권한 제한이 적용됩니다.
 
 ## Local Docker Setup
 
 다음은 신규·폐기 가능한 로컬 환경용 절차입니다. 첫 Docker 실행 **전에** 저장소 루트에서 설정을 생성합니다.
 
-```powershell
+~~~powershell
 # Windows PowerShell
 .\.venv\Scripts\python.exe scripts/create_local_env.py
-```
+~~~
 
-```sh
+~~~sh
 # Linux / macOS
 .venv/bin/python scripts/create_local_env.py
-```
+~~~
 
 이 스크립트는 Git에서 제외되는 루트 `.env`를 생성하고 기존 파일 덮어쓰기를 거부합니다. Compose에 필요한 `LOCAL_DB_PASSWORD`, `LOCAL_NEO4J_PASSWORD`와 로컬 서비스 설정을 준비합니다. DB와 HTTP 서비스가 같은 인증값을 사용하도록 생성 후 Docker를 실행합니다.
 
 기존 `.env`가 있으면 보존하고 설정을 대조합니다. `--output`으로 별도 파일을 만든 경우 Compose의 `--env-file`뿐 아니라 백엔드와 테스트 프로세스에도 같은 설정을 전달해야 합니다. 통합 실행기는 기본적으로 루트 `.env`를 읽습니다. 암호를 바꾸어도 기존 DB 볼륨의 암호가 자동 변경되지는 않습니다. 생성된 서비스 토큰은 30일 후 만료되며 운영 환경에 사용하지 않습니다.
 
-```sh
+~~~sh
 docker compose --profile api up -d --wait db rest gateway
-```
+~~~
 
-마이그레이션은 Bash, `sha256sum`, Docker CLI가 필요합니다. Windows에서는 Docker Desktop에 연결 가능한 Git Bash 또는 WSL에서 저장소 루트를 열어 실행합니다. 컨테이너에 마운트되는 `scripts/db/*.sh`는 LF 줄바꿈이어야 합니다.
+마이그레이션은 Bash, GNU Coreutils, Docker CLI가 필요합니다. Windows에서는 Docker Desktop에 연결 가능한 Git Bash 또는 WSL에서 저장소 루트를 열어 실행합니다. 컨테이너에 마운트되는 `scripts/db/*.sh`는 LF 줄바꿈이어야 합니다.
 
-```sh
+~~~sh
 bash scripts/db/migrate.sh
 bash scripts/db/migrate.sh
-```
+~~~
 
-각 마이그레이션 파일은 트랜잭션과 checksum ledger를 사용해 적용합니다. 두 번째 실행은 checksum이 같은 적용 완료 파일을 건너뜁니다. 적용된 파일을 수정하면 실패하므로 배포된 마이그레이션을 고치지 말고 별도의 업그레이드 파일을 준비해야 합니다. 이 동작은 퀴즈 API의 여러 저장 요청을 단일 트랜잭션으로 묶는 기능과는 별개입니다.
+각 마이그레이션 파일은 트랜잭션으로 적용하고 적용 이력을 기록합니다. 다시 실행하면 이미 적용한 파일의 내용이 같은 경우 건너뜁니다. 적용된 파일을 수정하면 실패하므로 배포된 마이그레이션을 고치지 말고 별도의 업그레이드 파일을 준비해야 합니다. 이 동작은 퀴즈 API의 여러 저장 요청을 단일 트랜잭션으로 묶는 기능과는 별개입니다.
 
 개념 Seed를 먼저 적재하고 예시 문항을 추가합니다.
 
 **Bash**
 
-```sh
+~~~sh
 docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase/seed/concepts.sql
 docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase/seed/concepts.example.sql
 docker compose restart rest
-```
+~~~
 
 **Windows PowerShell**
 
-```powershell
+~~~powershell
 cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase\seed\concepts.sql"
 cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < supabase\seed\concepts.example.sql"
 docker compose restart rest
-```
+~~~
 
 PostgREST 재시작은 마이그레이션 이후 스키마 캐시를 다시 읽기 위한 절차입니다. DB는 기본 loopback 포트 54322, gateway는 54321을 사용합니다. `LOCAL_DB_PORT`와 `LOCAL_API_PORT`로 포트를 바꿀 수 있으며, HTTP 포트를 바꾸면 `SUPABASE_URL`도 맞춰야 합니다.
 
 gateway는 `/rest/v1`을 PostgREST로 전달합니다. PostgREST는 NOINHERIT authenticator로 로그인한 뒤 서명된 service-role claim에 따라 역할을 전환합니다. 익명 접근은 차단됩니다. 이 구성은 최소 테이블/RPC HTTP gateway이며 Supabase Auth·Storage·Realtime 전체를 재현하지 않습니다. FastAPI의 자체 가입·JWT 흐름은 해당 테이블/RPC 작업을 사용합니다. FastAPI는 루트 `.env`를 읽지만 실제 LLM 응답에는 별도 모델 서버가 필요합니다.
 
-원본으로 제공된 두 개념 CSV는 열 순서만 다릅니다. `concepts.sql`은 제공된 필드를 보존한 원본 30개 레코드를 적재합니다. [Seed 출처](../supabase/seed/data-provenance.md)를 참고하세요. `concepts.example.sql`은 기존 개념을 덮어쓰지 않고 인플레이션 예시 문항 1개를 추가합니다. Seed는 재실행할 수 있으며 ID·이름 충돌 시 기존 관계를 임의로 재매핑하지 않고 실패합니다. 신규 Supabase 환경에서는 권한·확장 구성을 확인한 뒤 이 기준 스키마와 Seed를 적용합니다.
+`concepts.sql`은 공개 목록의 개념 30개를 적재합니다. `concepts.example.sql`은 개념 정의를 유지하면서 인플레이션 예시 문항 1개를 추가합니다. 시드는 재실행할 수 있으며 ID·이름이 충돌하면 오류를 반환합니다. 신규 Supabase 환경은 권한과 Postgres 확장 구성을 확인한 뒤 기준 스키마와 시드를 적용합니다. [개념 시드 출처](../supabase/seed/data-provenance.md)
+
+## Run the Application
+
+[로컬 DB 구성](#local-docker-setup)을 마친 뒤, 실제 채팅을 사용하려면 [모델 서버](deployment/gcp-vllm.md)를 연결합니다. Neo4j 문맥을 사용하려면 [Neo4j 설치와 시드](#neo4j)를 완료합니다.
+
+백엔드는 저장소 루트에서 시작합니다.
+
+~~~powershell
+# Windows PowerShell
+cd back
+..\.venv\Scripts\python.exe -m uvicorn main:app --port 8080
+~~~
+
+~~~sh
+# Linux / macOS
+cd back
+../.venv/bin/python -m uvicorn main:app --port 8080
+~~~
+
+프런트엔드는 별도 터미널에서 저장소 루트의 다음 명령으로 시작합니다.
+
+~~~sh
+cd front
+npm ci
+npm start
+~~~
+
+프런트엔드는 `http://localhost:3000`, 백엔드는 `http://localhost:8080`에서 확인합니다. `GET /`은 백엔드 프로세스 상태를 반환합니다. 모델 서버와 실제 채팅 응답은 [추론 서버 확인 절차](deployment/gcp-vllm.md#gpu-server)를 참고하세요. 다른 백엔드 주소를 사용할 경우 [`front/.env.development`](../front/.env.development)의 `REACT_APP_API_URL`과 백엔드의 허용 Origin을 맞춥니다.
+
+## Tutoring Runtime
+
+[채팅 라우터](../back/routers/chat.py)는 인증과 세션을 확인하고 학습자의 입력을 검사합니다. 시장 에이전트에는 Tavily 검색 결과를, 거시경제 에이전트에는 Neo4j의 개념 관계와 관계 설명을 전달합니다. REST 채팅은 두 문맥을 순차적으로, WebSocket 채팅은 병렬로 조회합니다.
+
+[LangGraph](../back/multi_agent/graph.py)는 [세 평가 노드 호출](../back/multi_agent/nodes.py)을 병렬로 시작합니다. 이론 에이전트가 `retry_needed`를 반환하면 재설명 피드백으로 종료합니다. 일반 답변은 교차 검토를 한 차례 거친 뒤 최종 피드백을 합성합니다. 개별 에이전트 호출은 [세마포어](../back/multi_agent/llm_config.py)로 동시 실행을 제한합니다.
+
+개념을 다시 설명하기 어려운 경우 채팅 라우터는 학습 상태에 맞춰 하위 개념 질문, 개념 설명, 빈칸 채우기, 정답 공개 순으로 힌트를 제공합니다. 힌트 응답을 평가해 개념을 설명할 수 있게 되면 일반 평가 흐름으로 돌아갑니다.
+
+개념의 정의, 허용 가능한 확장 설명, 사전 내용, 핵심 용어와 답변 검증 프롬프트는 [개념 시드](../supabase/seed/data-provenance.md)에 따로 저장합니다. 초기 평가 방식의 탐색 비교는 [사용자 평가 문서](evaluation/user-evaluation.md#exploratory-evaluator-comparison)에 정리했습니다.
 
 ## SQL Verification
 
 SQL 검사는 트랜잭션 안에서 시험 데이터를 생성한 뒤 롤백하며, 실제 접근 거부·삭제 관계·퀴즈 제약조건·캐시 카운터와 TTL을 확인합니다.
 
-```sh
+~~~sh
 # Bash
 docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < tests/sql/schema_checks.sql
-```
+~~~
 
-```powershell
+~~~powershell
 # Windows PowerShell
 cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1 < tests\sql\schema_checks.sql"
-```
+~~~
 
 마이그레이션 재실행은 앞 절의 두 번째 `migrate.sh` 호출로 확인합니다. Seed 재실행은 `concepts.sql` 적재 명령을 한 번 더 실행하여 확인합니다. CI의 database job도 이 두 재실행을 포함합니다. Docker 볼륨은 명시적으로 제거하기 전까지 유지됩니다.
 
@@ -190,11 +203,11 @@ cmd /c "docker compose exec -T db psql -U postgres -d antutor -v ON_ERROR_STOP=1
 
 POST에 세션이 있으면 같은 사용자·세션의 최신 PRE를 `created_at`, `attempt_id` 내림차순으로 찾습니다. 비교 대상은 이 PRE 한 건이며, 답안의 문항 ID 집합과 개수가 POST 제출과 같을 때 향상도를 계산합니다.
 
-```text
+~~~text
 MAX = 채점된 문항 수 × 3
 runtime gain = (POST - PRE) / (MAX - PRE)
 PRE = MAX인 경우 runtime gain = 0
-```
+~~~
 
 세션 없음, PRE 없음, 최신 PRE 답안 집합·개수 불일치 시 `skill_improvement`, `pre_test_score`, `pre_test_details`는 `null`입니다. 세션이 있는 POST는 이 경우 기존 `sessions.hakes_gain`도 `null`로 갱신합니다. 조회·갱신의 DB 실패는 정상적인 비교 불가와 구분하여 503을 반환합니다.
 
@@ -214,16 +227,16 @@ PRE = MAX인 경우 runtime gain = 0
 
 `tests/integration/run_api_check.py`는 로컬 FastAPI를 시작한 뒤 `check_api.py`, `check_quiz.py`를 차례로 실행합니다. `check_quiz.py`는 합성 개념·문항·사용자·세션을 만들고 GET 필터링, POST 검증, 소유권, 저장 점수, PRE/POST 향상도를 확인합니다. 잘못된 제출에서 기록이 생성되지 않는지도 확인하지만 저장 중 장애의 트랜잭션 롤백을 검사하는 것은 아닙니다.
 
-```powershell
+~~~powershell
 # Windows PowerShell, 저장소 루트
 $env:ANTUTOR_DISPOSABLE_TESTS = '1'
 .\.venv\Scripts\python.exe tests/integration/run_api_check.py
-```
+~~~
 
-```sh
+~~~sh
 # Bash, 저장소 루트
 ANTUTOR_DISPOSABLE_TESTS=1 .venv/bin/python tests/integration/run_api_check.py
-```
+~~~
 
 `ANTUTOR_DISPOSABLE_TESTS=1`이 필요하며 API와 Supabase HTTP 주소는 localhost/127.0.0.1/::1이어야 합니다. 실행기는 `TEST_API_URL`을 `http://127.0.0.1:8082`로 지정합니다. 루트 `.env`를 읽되 프로세스 환경변수가 우선하므로 `SUPABASE_URL`과 `SUPABASE_KEY`가 같은 임시 DB를 가리키는지 확인합니다. 운영 자격증명은 필요하지 않습니다. loopback 검사는 로컬 프록시·터널 뒤의 실제 대상이나 DB 폐기 가능성까지 판별하지 못합니다.
 
@@ -231,67 +244,74 @@ API 로그는 `api-integration.log`에 기록합니다. 실행기는 자신이 �
 
 ## Frontend Quiz Scope
 
-`front/src/api/services.js`의 퀴즈 조회 함수는 URL에 `encodeURIComponent(concept)`를 사용합니다. `QuizScreen`은 `null`/`undefined`를 대기 상태로, `[]`을 조회가 완료된 빈 결과로 구분합니다. 빈 배열이면 한국어 “등록된 퀴즈가 없습니다” 또는 영어 안내를 즉시 표시하며 자동 제출하거나 완료 콜백을 호출하지 않습니다.
+[`App.js`](../front/src/App.js#L439)의 미션 선택은 인플레이션 채팅 세션을 시작합니다. 개념별 퀴즈 조회·저장을 확인하려면 [퀴즈 API](#quiz-api-contract)를 사용합니다. [`QuizScreen`](../front/src/components/QuizScreen.jsx)은 현재 미션 화면과 별도로 테스트하는 컴포넌트입니다. 화면에 연결할 경우 상위 컴포넌트에서 문항·세션·완료 콜백을 전달합니다.
 
-문항이 있는 PRE는 기존 최소 로딩 대기 동작을 유지합니다. 네트워크 조회 오류를 빈 콘텐츠로 바꾸는 기능은 없으며, 상위 컴포넌트가 연결될 때 오류와 빈 결과를 구분해야 합니다.
-
-`App.js`의 미션 선택은 인플레이션 학습 세션으로 연결됩니다. `QuizScreen`은 이 렌더링 경로와 분리된 컴포넌트로, 화면에 연결할 때 상위 컴포넌트에서 문항·세션·완료 콜백을 전달해야 합니다. 프론트 테스트는 API를 mock으로 대체하여 컴포넌트와 API 함수의 동작을 검사합니다.
+[프런트 API 함수](../front/src/api/services.js)는 퀴즈 경로에 넣는 개념명을 URL 인코딩합니다. `QuizScreen`은 `null`/`undefined`를 대기 상태로 처리하고, `[]`에는 등록된 퀴즈가 없다는 안내를 표시합니다. 빈 목록은 제출이나 완료 콜백을 호출하지 않습니다. 호출 화면은 조회 실패와 빈 목록을 구분해서 처리합니다.
 
 ## Conservative Synthesis Cache
 
-캐시는 채팅 라우트에서 조기 반환하는 방식이 아니라 공통 그래프의 retry·최종 synthesis 노드 안에서 재사용합니다. 캐시 적중을 이유로 Guardrail, 전문가 평가, Scaffolding 판단, 세션·로그 갱신을 생략하지 않습니다. 재사용 대상은 구조화된 synthesis 결과이며 점수를 임의로 0으로 만들거나 이력을 건너뛰지 않습니다. 스트리밍 캐시 적중 시 모델 토큰 조각 없이 정상 최종 결과를 전달합니다. Scaffolding 생성과 학습자 범위가 없는 sandbox·benchmark 호출은 캐시하지 않습니다.
+공통 그래프의 재설명·최종 합성 노드는 구조화된 응답을 재사용할 수 있습니다. 채팅 경로는 입력 검사, 전문가 평가 또는 힌트 판단, 세션 상태와 대화 기록 갱신을 수행합니다. 스트리밍에서 캐시가 적중하면 중간 생성 토큰 없이 최종 결과를 전달합니다. 힌트 생성과 학습자 범위가 없는 샌드박스·벤치마크 요청은 새로 생성합니다.
 
 namespace는 학습자·세션·개념, 세션 상태, 직전 질문 해시, 정확한 답변, Scaffolding 상태, mastery count, 직전 weakest agent, 이력, 해당 요청의 전문가 근거를 포함한 전체 synthesis 프롬프트, 프롬프트 버전, 모델 설정을 해시합니다. 벡터 유사성만으로 이 경계를 넘을 수 없습니다. 정확한 프롬프트·답변 해시는 학습 상태에 맞는 재사용을 위해 적중률을 의도적으로 낮춥니다.
 
-`MODEL_VERSION`은 변경되지 않는 배포·모델 revision으로 설정하고, 같은 모델명·URL에서 가중치가 변경되면 갱신합니다. `PROMPT_VERSION` 기본값은 프롬프트 소스의 SHA-256이며, 명시적인 릴리스 버전이 있을 때만 덮어씁니다.
+`MODEL_VERSION`은 변경되지 않는 배포·모델 revision으로 설정하고, 같은 모델명·URL에서 가중치가 변경되면 갱신합니다. `PROMPT_VERSION` 기본값은 프롬프트 소스 내용에서 결정됩니다. 명시적인 릴리스 버전이 있을 때 이 값을 지정합니다.
 
 범위가 지정된 RPC는 실제 적중 시 `hit_count`를 원자적으로 증가시키고 24시간이 지난 항목을 제외합니다. 조회 시험에서는 카운터를 늘리지 않습니다. 캐시·임베딩 작업 실패 시 일반 생성으로 진행하며 잘못된 형식의 synthesis는 캐시하지 않습니다.
 
-namespace 유일성 덕분에 B-tree로 최대 한 후보를 찾으므로, 측정 근거가 없는 `IVFFlat lists=100` 인덱스를 추가하지 않았습니다. 넓은 범위 검색을 다시 도입한다면 대표 데이터의 재현율·지연·필터 후보 수를 측정한 뒤 ANN 인덱스와 lists 수를 선택해야 합니다. 만료 항목은 백엔드·관리자 권한으로 다음 조건을 사용하여 주기적으로 정리할 수 있습니다.
+고유한 `namespace`로 최대 한 후보를 찾고 벡터 유사도와 만료 여부를 검사합니다. 만료 항목은 백엔드·관리자 권한으로 다음 조건을 사용해 정리할 수 있습니다.
 
-```sql
+~~~sql
 DELETE FROM semantic_cache WHERE created_at < now() - interval '24 hours';
-```
+~~~
 
 ## Neo4j
 
-`neo4j/seed/relation_data.csv`는 원본 80행 관계 데이터에서 정규화한 결과로, 32개 개념과 69개 고유 관계를 제공합니다. 역방향으로 중복된 RELATED_TO/CONTRASTS_WITH는 합치고 CAUSES/PART_OF/REQUIRES는 제공된 방향을 유지합니다. 같은 관계의 서로 다른 reason은 삭제하지 않고 합칩니다. 제공된 인과관계를 독립적으로 사실 검증한 것은 아닙니다. 원본 체크섬과 변환 정책은 [출처 문서](../neo4j/data-provenance.md)에 있습니다. 개념명 유일성 제약과 MERGE로 재실행 시 중복 생성을 방지합니다.
+`neo4j/seed/relation_data.csv`는 원본 80행 관계 데이터에서 정규화한 결과로, 31개 개념과 69개 고유 관계를 제공합니다. 역방향으로 중복된 RELATED_TO/CONTRASTS_WITH는 합치고 CAUSES/PART_OF/REQUIRES는 제공된 방향을 유지합니다. 같은 관계의 서로 다른 reason은 삭제하지 않고 합칩니다. 관계 방향은 원자료의 설정을 따릅니다. 자료 출처와 변환 규칙은 [출처 문서](../neo4j/data-provenance.md)에 있습니다. 개념명 유일성 제약과 MERGE로 재실행 시 중복 생성을 방지합니다.
 
-```sh
+~~~sh
 docker compose up -d neo4j
-```
+~~~
 
 Neo4j가 연결 가능한 상태가 되면 저장소 루트에서 실행합니다. 로컬 설정은 `NEO4J_URI=bolt://localhost:7687`, `NEO4J_USER=neo4j`, `NEO4J_PASSWORD`에 로컬 Neo4j 암호, `NEO4J_DATABASE=neo4j`를 사용합니다.
 
-```powershell
+~~~powershell
 # Windows PowerShell
 .\.venv\Scripts\python.exe scripts/seed_neo4j.py
-```
+~~~
 
-```sh
+~~~sh
 # Linux / macOS
 .venv/bin/python scripts/seed_neo4j.py
-```
+~~~
 
 관리형 Neo4j의 `neo4j+s://` 또는 `bolt+s://` URI는 제공된 검증 가능한 주소를 그대로 사용합니다. 로컬 일반 Bolt 포트는 Compose에서 loopback으로 제한합니다. 드라이버는 설정된 DB를 사용하며 인플레이션/CPI/Interest_Rate 같은 alias는 Seed 적재와 조회에서 같은 방식으로 정규화합니다.
 
 ## Tests and Runtime Data
 
-저장소 루트에서 단위 테스트를 실행합니다.
+저장소 루트에서 백엔드 단위 테스트를 실행합니다.
 
-```powershell
+~~~powershell
 # Windows PowerShell
 .\.venv\Scripts\python.exe -m pytest -q
-```
+~~~
 
-```sh
+~~~sh
 # Linux / macOS
 .venv/bin/python -m pytest -q
-```
+~~~
 
 단위 테스트는 외부 의존성을 대체하며 실제 추론, 학습자 기록 또는 유료 API 호출을 검증하지 않습니다. 퀴즈 오류 주입과 통합 실행 환경 검사는 단위 테스트에 포함됩니다. 실제 SQL·API·Neo4j 검사는 CI에서 Docker 환경을 사용합니다.
 
-워크플로의 backend job은 단위 테스트와 임시 DB의 API·퀴즈 검사를 실행하고, database job은 신규 마이그레이션·Seed 재실행·권한과 제약조건을 확인합니다. frontend job은 `CI=true`로 Jest와 빌드를 실행하고, graph job은 Neo4j Seed 재실행을 확인합니다. 테스트 결과는 각 커밋의 실행 로그에서 확인합니다.
+프런트엔드 테스트와 빌드는 별도 터미널에서 실행합니다.
+
+~~~sh
+cd front
+npm ci
+npm test -- --watchAll=false --runInBand
+npm run build
+~~~
+
+[CI 워크플로](../.github/workflows/ci.yml)의 `backend`는 단위 테스트와 임시 DB의 API·퀴즈 검사, `database`는 마이그레이션·시드 재실행과 권한·제약조건 확인, `frontend`는 Jest와 빌드, `graph`는 Neo4j 시드 재실행을 담당합니다.
 
 기존 진단 도구는 `scripts/diagnostics`, 수동 통합·성능 스크립트는 `tests/manual`과 `tests/performance`에 있으며 기본 pytest 대상에서 제외됩니다. DB 쓰기나 유료 추론 호출이 있을 수 있으므로 개별 스크립트를 검토한 뒤 사용합니다. 해당 출력은 자동화 테스트 전체가 통과했다는 근거가 아닙니다.
 

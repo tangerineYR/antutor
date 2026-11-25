@@ -1,37 +1,31 @@
 # GCP L4 and vLLM
 
-기본 추론 설정은 **vLLM + `Qwen/Qwen3-14B-AWQ`**입니다. Ollama는 명시적으로 선택할 수 있는 로컬 대안입니다. Python 백엔드는 추론 클라이언트이므로 백엔드 의존성을 설치하는 것만으로 GPU 모델 서버가 설치되거나 실행되지는 않습니다.
+Antutor의 기본 추론 설정은 vLLM의 OpenAI 호환 API와 `Qwen/Qwen3-14B-AWQ`입니다. FastAPI는 모델 서버에 요청을 보내므로 백엔드 설치와 모델 서빙은 별도 단계입니다.
 
-## Historical Deployment
+## vLLM Configuration
 
-저장소에는 [정규화한 과거 배포 설정](gcp-vllm-historical.json)이 보존되어 있습니다. GCP Compute Engine `g2-standard-4`, NVIDIA L4 24GB VRAM, Ubuntu 22.04에서 vLLM으로 `Qwen/Qwen3-14B-AWQ`를 서빙한 구성입니다. 서버 옵션과 이에 대응하는 LOCAL/DRAFT/DEBATE 모델 설정을 포함하며 자격증명과 서버 주소는 제외했습니다.
+동일한 모델 서버를 사용할 때는 LOCAL 값만 지정합니다. DRAFT와 DEBATE의 주소·모델을 생략하면 각각 LOCAL 값을 사용합니다. 서버나 모델을 분리할 때는 필요한 항목을 추가합니다. [전체 환경변수 예시](../../.env.example)
 
-초기 8B 단계와 이후 14B 구성은 구분합니다. [Colab 노트북](../experiments/vllm_qwen3_colab.ipynb)은 8B 프로토타입이며 14B 배포 명세가 아닙니다. 당시 서버 이미지는 `latest`였고 이미지 digest와 모델 revision은 알려져 있지 않습니다. 정규화한 기록으로 확인할 수 있는 범위와 한계는 [출처 문서](../evaluation/data-provenance.md)에 설명되어 있습니다.
-
-## Backend Configuration
-
-설정 항목은 [`.env.example`](../../.env.example)을 참고합니다. DRAFT/DEBATE뿐 아니라 LOCAL도 설정해야 합니다. 개별 Agent, 힌트 생성, 프롬프트 sandbox에서도 LOCAL 설정을 사용합니다.
-
-```ini
+~~~ini
 LLM_BACKEND_TYPE=vllm
 LOCAL_LLM_ENDPOINT=http://localhost:8000/v1
-DRAFT_LLM_ENDPOINT=http://localhost:8000/v1
-DEBATE_LLM_ENDPOINT=http://localhost:8000/v1
 LOCAL_LLM_MODEL=Qwen/Qwen3-14B-AWQ
-DRAFT_LLM_MODEL=Qwen/Qwen3-14B-AWQ
-DEBATE_LLM_MODEL=Qwen/Qwen3-14B-AWQ
 VLLM_API_KEY=
-```
+~~~
 
-`localhost:8000`은 로컬 GPU 서버 또는 GPU 호스트로 연결한 SSH 터널을 뜻합니다. 원격 서비스에는 인증된 HTTPS endpoint를 사용하고 실제 API 키는 비공개 환경 설정으로 전달합니다.
+| 호출 | 주소와 모델 설정 |
+| --- | --- |
+| 개별 에이전트 호출, 힌트와 프롬프트 실험 | `LOCAL_LLM_ENDPOINT`, `LOCAL_LLM_MODEL` |
+| LangGraph 초안 평가 | `DRAFT_LLM_ENDPOINT`, `DRAFT_LLM_MODEL` |
+| LangGraph 교차 검토와 최종 합성 | `DEBATE_LLM_ENDPOINT`, `DEBATE_LLM_MODEL` |
 
-DRAFT/DEBATE endpoint를 생략하면 LOCAL endpoint를, 모델을 생략하면 LOCAL 모델을 상속합니다. 명시한 값이 우선합니다. vLLM endpoint의 `/`, `/v1/` 접미사는 정규화하며 알려지지 않은 backend 이름은 시작 시 거부합니다.
+이 예시는 백엔드와 GPU 서버가 같은 호스트에 있거나 로컬 포트를 GPU 호스트로 포워딩한 경우에 사용합니다. 인증을 설정한 모델 서버에는 `VLLM_API_KEY`를 비공개 환경변수로 전달합니다. 원격 서비스에는 인증과 HTTPS를 사용합니다.
 
 ## GPU Server
 
-서버에는 적절한 GPU, NVIDIA 드라이버, Docker, NVIDIA Container Toolkit이 필요합니다. 다음은 과거 모델과 주요 옵션을 유지하면서 포트를 loopback으로 제한한 **GPU 서버의 Bash 실행 예시**입니다. 대상 GPU와 모델에서 검증한 이미지 태그 또는 digest를 선택해야 합니다. 과거의 `latest` 참조는 재현 가능한 버전 고정값이 아닙니다.
+GPU 호스트에 NVIDIA 드라이버, Docker와 NVIDIA Container Toolkit을 준비합니다. 다음 예시는 당시 모델과 주요 옵션을 사용하며 호스트의 `127.0.0.1:8000`에 포트를 공개합니다. `VLLM_IMAGE`에는 대상 GPU에서 검증한 이미지 태그나 digest를 지정합니다.
 
-```sh
+~~~sh
 : "${VLLM_IMAGE:?Set a validated vLLM image tag or digest}"
 docker run --gpus all -d --name antutor-vllm \
   -p 127.0.0.1:8000:8000 --ipc=host \
@@ -42,24 +36,24 @@ docker run --gpus all -d --name antutor-vllm \
   --gpu-memory-utilization 0.95 \
   --max-model-len 4096 \
   --enable-prefix-caching
-```
+~~~
 
-이 명령은 로컬 또는 터널을 통한 개발용입니다. 외부 공개 서비스에는 TLS와 인증이 필요합니다. 메모리 사용량은 vLLM 버전·다른 GPU 작업·동시 요청 수에 따라 달라지므로 과거의 0.95/4096 설정도 대상 환경에서 검증해야 합니다.
+`/v1/models`에서 모델 식별자를 확인하고 `/v1/chat/completions`에서 대표 질문의 응답을 확인합니다. 메모리 옵션과 문맥 길이는 vLLM 버전, GPU 가용 메모리, 동시 요청 수에 맞춰 확인합니다.
 
-`/v1/models`에서 모델 식별자를 확인한 뒤 `/v1/chat/completions`에 대표 요청을 보내 응답을 검증합니다. 포트가 열려 있다는 사실만으로 모델 준비가 확인되지는 않습니다. 설정 검사와 mock 기반 프로토콜 테스트는 GPU 호환성, 생성 품질, 메모리 사용량, 추론 지연을 측정하지 않습니다.
+## Ollama Configuration
 
-## Optional Ollama Configuration
+Ollama를 설치하고 `qwen3:8b`를 내려받은 뒤 다음 값을 사용합니다. 다른 모델을 사용하려면 각 단계에 설정한 식별자가 로컬 서버에 설치되어 있어야 합니다.
 
-기존 환경에서 전환할 때는 명시적으로 설정된 모든 모델명과 endpoint를 함께 바꿉니다.
-
-```ini
+~~~ini
 LLM_BACKEND_TYPE=ollama
 LOCAL_LLM_ENDPOINT=http://localhost:11434/api/chat
-DRAFT_LLM_ENDPOINT=http://localhost:11434/api/chat
-DEBATE_LLM_ENDPOINT=http://localhost:11434/api/chat
 LOCAL_LLM_MODEL=qwen3:8b
 DRAFT_LLM_MODEL=qwen3:8b
 DEBATE_LLM_MODEL=qwen3:8b
-```
+~~~
 
-Ollama 설치와 `qwen3:8b` 다운로드는 별도로 수행합니다. endpoint·모델 환경변수가 없으면 `LLM_BACKEND_TYPE=ollama`가 위 기본값을 선택합니다. backend 종류만 바꾸어도 기존에 명시한 vLLM 값이 자동으로 덮어써지는 것은 아닙니다.
+Ollama에서 LangGraph의 초안·교차 검토·합성은 모두 `LOCAL_LLM_ENDPOINT`에서 파생한 호스트 주소를 사용합니다. `DRAFT_LLM_MODEL`과 `DEBATE_LLM_MODEL`은 단계별 모델을 선택합니다. 기존 vLLM 설정을 재사용하는 경우 명시된 LOCAL 주소와 모델, DRAFT·DEBATE 모델을 Ollama용으로 바꿉니다. [클라이언트 설정](../../back/multi_agent/llm_config.py)
+
+## Historical Deployment
+
+[과거 배포 설정](gcp-vllm-historical.json)은 GCP Compute Engine `g2-standard-4`, NVIDIA L4 24GB, Ubuntu 22.04와 vLLM의 `Qwen/Qwen3-14B-AWQ` 설정을 담고 있습니다. [Colab 노트북](../experiments/vllm_qwen3_colab.ipynb)은 초기 8B 프로토타입에 해당합니다. 당시 서버 기록에는 `latest` 이미지가 남아 있으며 정확한 이미지 digest와 모델 revision은 확인할 수 없습니다. [배포 기록의 출처와 범위](../evaluation/data-provenance.md#historical-gpu-configuration)
