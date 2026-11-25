@@ -10,8 +10,13 @@
 
 [![Verification](https://github.com/tangerineYR/antutor/actions/workflows/ci.yml/badge.svg)](https://github.com/tangerineYR/antutor/actions/workflows/ci.yml)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
-![LangGraph](https://img.shields.io/badge/LangGraph-Orchestration-1C3C3C)
 ![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=black)
+![LangGraph](https://img.shields.io/badge/LangGraph-Orchestration-1C3C3C)
+
+![Qwen3](https://img.shields.io/badge/Qwen3-Agent_Evaluation-615CED)
+![Neo4j](https://img.shields.io/badge/Neo4j-Knowledge_Graph-018BFF)
+![Tavily](https://img.shields.io/badge/Tavily-Market_Search-6D50B2)
+![pgvector](https://img.shields.io/badge/pgvector-Semantic_Cache-336791)
 
 </div>
 
